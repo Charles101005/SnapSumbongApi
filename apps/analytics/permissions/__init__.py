@@ -1,0 +1,1 @@
+from .analytic_permissions import AnalyticPermissions

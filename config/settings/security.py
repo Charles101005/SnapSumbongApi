@@ -1,0 +1,12 @@
+from django.conf import settings
+
+
+SECURE_SSL_REDIRECT: bool = settings.SECURE_SSL_REDIRECT
+
+SESSION_COOKIE_DOMAIN: str = settings.COOKIE_DOMAIN
+
+CSRF_COOKIE_DOMAIN: str = settings.COOKIE_DOMAIN
+CSRF_TRUSTED_ORIGINS: list[str] = settings.TRUSTED_ORIGINS
+
+CORS_ALLOWED_ORIGINS: list[str] = settings.TRUSTED_ORIGINS
+CORS_ALLOW_CREDENTIALS: bool = True

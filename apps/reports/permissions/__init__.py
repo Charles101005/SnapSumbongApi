@@ -1,0 +1,1 @@
+from .report_permissions import ReportPermissions
