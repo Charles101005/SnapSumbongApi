@@ -3,6 +3,8 @@ from rest_framework.response import Response
 from rest_framework.request import Request
 from rest_framework.views import APIView
 
+from apps.accounts.services import RegisterService
+from shared.results import DomainResultResponse
 from apps.accounts.serializers.request.register_serializer import (
 RegistrationRequestSerializer,
 VerifyRegistrationRequestSerializer,
@@ -13,7 +15,6 @@ RegistrationResponseSerializer,
 VerifyRegistrationResponseSerializer,
 ResendVerificationCodeResponseSerializer
 )
-from apps.accounts.services import RegisterService
 
 
 class RegistrationView(APIView):
@@ -30,9 +31,9 @@ class RegistrationView(APIView):
             middle_name=validated_data['middle_name'],
         )
 
-        return Response(
-            data=RegistrationResponseSerializer(verification).data,
-            status=status.HTTP_201_CREATED,
+        return DomainResultResponse(verification).respond(
+            serializer_class=RegistrationResponseSerializer,
+            success_status_code=status.HTTP_201_CREATED,
         )
 
 
@@ -47,9 +48,9 @@ class VerifyRegistrationView(APIView):
             otp=validated_data['otp'],
         )
 
-        return Response(
-            data=VerifyRegistrationResponseSerializer(user).data,
-            status=status.HTTP_201_CREATED,
+        return DomainResultResponse(user).respond(
+            serializer_class=VerifyRegistrationResponseSerializer,
+            success_status_code=status.HTTP_201_CREATED,
         )
 
 
@@ -61,7 +62,7 @@ class ResendRegisterVerificationCodeView(APIView):
         validated_data: dict = serializer.validated_data
         verification = RegisterService.resend_verification_code(email=validated_data['email'])
 
-        return Response(
-            data=ResendVerificationCodeResponseSerializer(verification).data,
-            status=status.HTTP_200_OK
+        return DomainResultResponse(verification).respond(
+            serializer_class=ResendVerificationCodeResponseSerializer,
+            success_status_code=status.HTTP_200_OK,
         )

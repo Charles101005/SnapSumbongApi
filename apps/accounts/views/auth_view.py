@@ -12,6 +12,7 @@ from rest_framework_simplejwt.exceptions import TokenError
 from django.conf import settings
 
 from apps.accounts.serializers.request.auth_serializer import LoginRequestSerializer
+from apps.accounts.serializers.response.auth_serializer import CurrentUserResponseSerializer
 
 
 def set_refresh_cookie(response: Response, refresh: str) -> None:
@@ -87,3 +88,12 @@ class LogoutView(APIView):
         )
 
         return response
+
+
+class CurrentUserView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request: Request) -> Response:
+        serializer = CurrentUserResponseSerializer(request.user)
+
+        return Response(data=serializer.data)

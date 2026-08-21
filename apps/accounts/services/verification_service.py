@@ -3,17 +3,20 @@ import string
 from datetime import datetime
 
 from django.conf import settings
+from django.db import transaction
 from django.contrib.auth.hashers import check_password, make_password
 from django.utils import timezone
 
 from apps.accounts.models import VerificationRequest
-from apps.accounts.exceptions.verification_exception import (
-VerificationNotFoundError,
-VerificationExpiredError,
-VerificationAttemptsExceededError,
-InvalidVerificationOTPError,
-OTPResendLimitExceededError,
-OTPResendCooldownActiveError
+from apps.accounts.exceptions.verification_exception import VerificationNotFoundException
+from shared.results import DomainResult
+from apps.accounts.domain_errors.verification_error import (
+        VerificationInProgressError,
+        VerificationExpiredError,
+        VerificationAttemptsExceededError,
+        InvalidVerificationOTPError,
+        OTPResendLimitExceededError,
+        OTPResendCooldownActiveError
 )
 
 
@@ -27,7 +30,7 @@ class VerificationService:
         return make_password(otp)
 
     @staticmethod
-    def _send_otp(email: str, purpose: str, otp: str) -> None:
+    def _send_otp(*, email: str, purpose: str, otp: str) -> None:
         # TODO: Connect to Email Integration
         print(f"{email=}\n{purpose=}\n{otp=}")
 
@@ -45,112 +48,113 @@ class VerificationService:
         return now + lifetime
 
     @staticmethod
+    @transaction.atomic
     def create(
+            *,
             email: str,
             purpose: str,
             payload: dict
-    ) -> VerificationRequest:
-        VerificationRequest.objects.delete_expired()
-
+    ) -> DomainResult[VerificationRequest]:
         now = timezone.now()
         expires_at = VerificationService._expires_at(now)
+
+        verification, created = VerificationRequest.objects.select_for_update().get_or_create(
+            email=email,
+            purpose=purpose,
+            defaults={
+                'otp_hash': '',
+                'payload': {},
+                'attempts': 0,
+                'resend_count': 0,
+                'expires_at': expires_at,
+                'last_sent_at': now,
+            }
+        )
+
+        if not created and verification.expires_at > now:
+            return DomainResult.error(VerificationInProgressError)
 
         otp = VerificationService._generate_otp()
         otp_hash = VerificationService._hash_otp(otp)
 
-        verification = VerificationRequest.objects.get_active_or_none(email=email, purpose=purpose)
+        verification.otp_hash = otp_hash
+        verification.payload = payload
 
-        if verification:
-            verification.otp_hash = otp_hash
-            verification.payload = payload
+        verification.expires_at = expires_at
+        verification.last_sent_at = now
 
+        if not created:
             verification.attempts = 0
             verification.resend_count = 0
 
-            verification.expires_at = expires_at
-            verification.last_sent_at = now
+        verification.save(update_fields=[
+            'otp_hash',
+            'payload',
+            'attempts',
+            'resend_count',
+            'expires_at',
+            'last_sent_at',
+        ])
 
-            verification.save(
-                update_fields=[
-                    'otp_hash',
-                    'payload',
-                    'attempts',
-                    'resend_count',
-                    'expires_at',
-                    'last_sent_at',
-                ]
-            )
-
-        else:
-            verification = VerificationRequest.objects.create(
-                email=email,
-                purpose=purpose,
-                otp_hash=otp_hash,
-                payload=payload,
-
-                expires_at=expires_at,
-                last_sent_at=now
-            )
-
-        VerificationService._send_otp(
+        transaction.on_commit(
+            lambda: VerificationService._send_otp(
                 email=email,
                 purpose=purpose,
                 otp=otp
-        )
+        ))
 
-        return verification
+        return DomainResult.success(verification)
 
     @staticmethod
+    @transaction.atomic
     def verify(
+            *,
             email: str,
             purpose: str,
             otp: str
-    ) -> VerificationRequest:
+    ) -> DomainResult[VerificationRequest]:
         config = VerificationService._config()
 
-        verification = VerificationRequest.objects.get_active_or_none(email=email, purpose=purpose)
+        verification = VerificationRequest.objects.get_for_update_or_none(email=email, purpose=purpose)
 
         if verification is None:
-            raise VerificationNotFoundError()
+            raise VerificationNotFoundException()
 
         if verification.expires_at <= timezone.now():
-            verification.delete()
-            raise VerificationExpiredError()
+            return DomainResult.error(VerificationExpiredError)
 
         if verification.attempts >= config['MAX_ATTEMPTS']:
-            raise VerificationAttemptsExceededError()
+            return DomainResult.error(VerificationAttemptsExceededError)
 
         if not check_password(otp, verification.otp_hash):
             verification.attempts += 1
             verification.save(update_fields=['attempts'])
-            raise InvalidVerificationOTPError()
+            return DomainResult.error(InvalidVerificationOTPError)
 
-        return verification
+        return DomainResult.success(verification)
 
     @staticmethod
+    @transaction.atomic
     def resend(
+            *,
             email: str,
             purpose: str,
-    ) -> VerificationRequest:
-        verification = VerificationRequest.objects.get_active_or_none(email=email, purpose=purpose)
+    ) -> DomainResult[VerificationRequest]:
+        verification = VerificationRequest.objects.get_for_update_or_none(email=email, purpose=purpose)
 
         if verification is None:
-            raise VerificationNotFoundError()
-
-        now = timezone.now()
-
-        if verification.expires_at <= now:
-            verification.delete()
-            raise VerificationExpiredError()
+            raise VerificationNotFoundException()
 
         config = VerificationService._config()
 
         if verification.resend_count >= config['MAX_RESENDS']:
             verification.delete()
-            raise OTPResendLimitExceededError()
+            return DomainResult.error(OTPResendLimitExceededError)
+
+        now = timezone.now()
 
         if now < verification.last_sent_at + config['RESEND_COOLDOWN']:
-            raise OTPResendCooldownActiveError()
+            return DomainResult.error(OTPResendCooldownActiveError)
 
         otp = VerificationService._generate_otp()
         otp_hash = VerificationService._hash_otp(otp)
@@ -171,10 +175,11 @@ class VerificationService:
             ]
         )
 
-        VerificationService._send_otp(
+        transaction.on_commit(
+            lambda: VerificationService._send_otp(
                 email=email,
                 purpose=purpose,
-                otp=otp
-        )
+                otp=otp,
+        ))
 
-        return verification
+        return DomainResult.success(verification)

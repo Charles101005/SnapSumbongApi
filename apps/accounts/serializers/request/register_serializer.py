@@ -1,8 +1,16 @@
 from rest_framework import serializers
+from rest_framework.validators import UniqueValidator
+
+from apps.accounts.models import Users
 
 
 class RegistrationRequestSerializer(serializers.Serializer):
-    email = serializers.EmailField()
+    email = serializers.EmailField(
+        validators=[UniqueValidator(
+            queryset=Users.objects.all(),
+            message="The provided email address is already in use."
+        )],
+    )
     password = serializers.CharField(write_only=True, min_length=8)
 
     last_name = serializers.CharField(max_length=50)

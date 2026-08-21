@@ -11,9 +11,14 @@ def global_exception_handler(exc: Exception, context: dict) -> Response|None:
         return response
 
     if isinstance(exc, BaseDomainException):
+        exc.__traceback__ = None
+
         return Response(
-            data={"detail": exc.detail},
-            status=exc.status
+            data={
+                "detail": exc.detail,
+                "error_code": exc.error_code,
+            },
+            status=exc.status_code,
         )
 
     return None

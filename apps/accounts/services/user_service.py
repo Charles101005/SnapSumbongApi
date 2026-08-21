@@ -1,23 +1,25 @@
 from apps.accounts.models.role_model import Roles
 from apps.accounts.models.user_model import Users
-from apps.accounts.exceptions.role_exception import DefaultCitizenRoleNotFoundError, RoleNotFoundError
+from apps.accounts.exceptions.role_exception import SystemCitizenRoleMissingException, RoleNotFoundException
 from shared.authorization.default_initial_role import AllDefaultRoles
+from shared.results import DomainResult
 
 
 class UserService:
     @staticmethod
     def create_verified_citizen(
+            *,
             email: str,
             password_hash: str,
             last_name: str,
             first_name: str,
             middle_name: str | None = None
-    ) -> Users:
+    ) -> DomainResult[Users]:
         _protected_citizen_role = AllDefaultRoles.get_citizen_role()
         citizen_role: Roles = Roles.objects.get_by_code_or_none(_protected_citizen_role.code)
 
         if not citizen_role:
-            raise DefaultCitizenRoleNotFoundError()
+            raise SystemCitizenRoleMissingException()
 
         user: Users = Users.objects.create_user(
             email=email,
@@ -29,22 +31,23 @@ class UserService:
             is_verified=True,
         )
 
-        return user
+        return DomainResult.success(user)
 
 
     @staticmethod
     def create_staff(
+            *,
             email: str,
             password: str,
             role_id: int,
             last_name: str,
             first_name: str,
             middle_name: str | None = None
-    ) -> Users:
+    ) -> DomainResult[Users]:
         staff_role: Roles = Roles.objects.get_by_id_or_none(role_id)
 
         if not staff_role:
-            raise RoleNotFoundError()
+            raise RoleNotFoundException()
 
         user: Users = Users.objects.create_user(
             email=email,
@@ -56,4 +59,4 @@ class UserService:
             is_staff=True,
         )
 
-        return user
+        return DomainResult.success(user)

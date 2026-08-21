@@ -8,6 +8,7 @@ from .role_model import Roles
 class UserManager(BaseUserManager):
     def create_user(
             self,
+            *,
             email: str,
             role: Roles,
             first_name: str,
@@ -25,7 +26,7 @@ class UserManager(BaseUserManager):
 
         user = self.model(
             email=normalized_email,
-            role_id=role,
+            role=role,
             first_name=first_name,
             last_name=last_name,
             middle_name=middle_name,
@@ -58,7 +59,7 @@ class Users(AbstractBaseUser):
     is_active = models.BooleanField(default=True) ##
     is_staff = models.BooleanField(default=False) ##
 
-    role_id = models.ForeignKey(Roles, on_delete=models.PROTECT)
+    role = models.ForeignKey(Roles, on_delete=models.PROTECT)
 
     last_active = models.DateTimeField(null=True)
     created_at = models.DateTimeField(auto_now_add=True)

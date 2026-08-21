@@ -34,5 +34,6 @@ VERIFICATION_REQUEST_CONFIG = {
     'MAX_ATTEMPTS': 3,
     'MAX_RESENDS': 2,
     'RESEND_COOLDOWN': timedelta(minutes=1),
-    'VERIFICATION_REQUEST_LIFETIME': timedelta(minutes=5),
+    'VERIFICATION_REQUEST_LIFETIME': timedelta(minutes=1),
+    'ABANDONED_THRESHOLD': timedelta(hours=1),
 }

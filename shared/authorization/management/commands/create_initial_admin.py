@@ -16,7 +16,7 @@ class Command(BaseCommand):
         if not admin_role:
             raise CommandError('No default System Admin role found.')
 
-        if Users.objects.filter(role_id=admin_role).exists():
+        if Users.objects.filter(role=admin_role).exists():
             raise CommandError('A System Admin account already exists.')
 
         while True:

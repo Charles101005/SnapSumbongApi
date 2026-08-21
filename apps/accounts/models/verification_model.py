@@ -1,5 +1,6 @@
 from django.db import models
 from django.utils import timezone
+from django.conf import settings
 
 
 class VerificationRequestQuerySet(models.QuerySet):
@@ -11,6 +12,13 @@ class VerificationRequestQuerySet(models.QuerySet):
 
 
 class VerificationRequestManager(models.Manager.from_queryset(VerificationRequestQuerySet)):
+    def get_or_none(self, email: str, purpose: str) -> 'VerificationRequest|None':
+        return(
+            self.get_queryset()
+            .filter(email=email, purpose=purpose)
+            .first()
+        )
+
     def get_active_or_none(self, email: str, purpose: str) -> 'VerificationRequest|None':
         return(
             self.get_queryset()
@@ -19,8 +27,19 @@ class VerificationRequestManager(models.Manager.from_queryset(VerificationReques
             .first()
         )
 
-    def delete_expired(self) -> 'VerificationRequest':
-        return self.get_queryset().expired().delete()
+    def get_for_update_or_none(self, email: str, purpose: str) -> 'VerificationRequest|None':
+        return(
+            self.get_queryset()
+            .select_for_update()
+            .filter(email=email, purpose=purpose)
+            .first()
+        )
+
+    def delete_abandoned(self) -> 'VerificationRequest':
+        threshold = settings.VERIFICATION_REQUEST_CONFIG['ABANDONED_THRESHOLD']
+        cutoff = timezone.now() - threshold
+
+        return self.filter(expires_at__lte=cutoff).delete()
 
 
 class VerificationRequest(models.Model):

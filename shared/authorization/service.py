@@ -14,7 +14,7 @@ class AuthorizationService:
             return cached_perms
 
         permissions = set(
-            user.role_id.permissions.values_list("permission_name", flat=True)
+            user.role.permissions.values_list("permission_name", flat=True)
         )
 
         setattr(user, cls._PERMS_CACHE_ATTR, permissions)
