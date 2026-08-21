@@ -120,16 +120,33 @@ class VerificationService:
         if verification is None:
             raise VerificationNotFoundException()
 
+        resends_remaining = max(0, config['MAX_RESENDS'] - verification.resend_count)
+
         if verification.expires_at <= timezone.now():
-            return DomainResult.error(VerificationExpiredError)
+            return DomainResult.error(VerificationExpiredError.with_meta(
+                meta={
+                    "expired_at": verification.expires_at.isoformat(),
+                    "resends_remaining": resends_remaining,
+                }
+            ))
 
         if verification.attempts >= config['MAX_ATTEMPTS']:
-            return DomainResult.error(VerificationAttemptsExceededError)
+            return DomainResult.error(VerificationAttemptsExceededError.with_meta(
+                meta={
+                    "resends_remaining": resends_remaining,
+                }
+            ))
 
         if not check_password(otp, verification.otp_hash):
             verification.attempts += 1
             verification.save(update_fields=['attempts'])
-            return DomainResult.error(InvalidVerificationOTPError)
+
+            return DomainResult.error(InvalidVerificationOTPError.with_meta(
+                meta={
+                    "attempts_remaining": max(0, config['MAX_ATTEMPTS'] - verification.attempts),
+                    "max_attempts_allowed": config['MAX_ATTEMPTS'],
+                }
+            ))
 
         return DomainResult.success(verification)
 
@@ -149,12 +166,23 @@ class VerificationService:
 
         if verification.resend_count >= config['MAX_RESENDS']:
             verification.delete()
-            return DomainResult.error(OTPResendLimitExceededError)
+            return DomainResult.error(OTPResendLimitExceededError.with_meta(
+                meta={
+                    "next_action": "RESTART_VERIFICATION"
+                }
+            ))
 
         now = timezone.now()
+        next_allowed_resend = verification.last_sent_at + config['RESEND_COOLDOWN']
 
-        if now < verification.last_sent_at + config['RESEND_COOLDOWN']:
-            return DomainResult.error(OTPResendCooldownActiveError)
+        if now < next_allowed_resend:
+            time_remaining = int((next_allowed_resend - now).total_seconds())
+
+            return DomainResult.error(OTPResendCooldownActiveError.with_meta(
+                meta={
+                    'retry_after_seconds': max(1, time_remaining)
+                }
+            ))
 
         otp = VerificationService._generate_otp()
         otp_hash = VerificationService._hash_otp(otp)
