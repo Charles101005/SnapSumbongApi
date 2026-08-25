@@ -16,6 +16,9 @@ from apps.accounts.serializers.response.auth_serializer import CurrentUserRespon
 
 
 def set_refresh_cookie(response: Response, refresh: str) -> None:
+    refresh_lifetime = settings.SIMPLE_JWT['REFRESH_TOKEN_LIFETIME']
+    cookie_max_age = int(refresh_lifetime.total_seconds())
+
     response.set_cookie(
         key='refresh',
         value=refresh,
@@ -23,6 +26,7 @@ def set_refresh_cookie(response: Response, refresh: str) -> None:
         secure=not settings.DEBUG,
         samesite='Lax',
         path='/accounts/auth',
+        max_age=cookie_max_age
     )
 
 
@@ -59,8 +63,6 @@ class RefreshView(TokenRefreshView):
             data={'access': data['access']}
         )
 
-        set_refresh_cookie(response, data['refresh'])
-
         return response
 
 
@@ -70,7 +72,7 @@ class LogoutView(APIView):
 
     def post(self, request: Request) -> Response:
         refresh: str = request.COOKIES.get('refresh')
-        print("REFRESH",refresh)
+
         if refresh:
             try:
                 RefreshToken(refresh).blacklist()
