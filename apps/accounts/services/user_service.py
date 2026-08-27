@@ -1,6 +1,9 @@
+from django.contrib.auth.hashers import make_password
+
 from apps.accounts.models.role_model import Roles
 from apps.accounts.models.user_model import Users
 from apps.accounts.exceptions.role_exception import SystemCitizenRoleMissingException, RoleNotFoundException
+from apps.accounts.domain_errors.user_error import UserNotFoundError
 from shared.authorization.default_initial_role import AllDefaultRoles
 from shared.results import DomainResult
 
@@ -58,5 +61,22 @@ class UserService:
             middle_name=middle_name,
             is_staff=True,
         )
+
+        return DomainResult.success(user)
+
+    @staticmethod
+    def change_password(
+            *,
+            email: str,
+            new_password: str,
+    ) -> DomainResult[Users]:
+        user = Users.objects.get_by_active_email_or_none(email)
+
+        if user is None:
+            DomainResult.error(UserNotFoundError)
+
+        user.password = make_password(new_password)
+
+        user.save(update_fields=['password'])
 
         return DomainResult.success(user)

@@ -42,6 +42,12 @@ class UserManager(BaseUserManager):
 
         return user
 
+    def get_by_active_email_or_none(self, email: str) -> 'Users|None':
+        return self.filter(
+            email__iexact=self.normalize_email(email),
+            is_active=True,
+        ).first()
+
 
 class Users(AbstractBaseUser):
     user_id = models.AutoField(primary_key=True)

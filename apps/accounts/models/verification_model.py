@@ -35,22 +35,33 @@ class VerificationRequestManager(models.Manager.from_queryset(VerificationReques
             .first()
         )
 
-    def delete_abandoned(self) -> 'VerificationRequest':
+    def delete_abandoned(self) -> tuple[int, dict[str, int]]:
         threshold = settings.VERIFICATION_REQUEST_CONFIG['ABANDONED_THRESHOLD']
         cutoff = timezone.now() - threshold
 
         return self.filter(expires_at__lte=cutoff).delete()
 
+    def get_password_reset_ready_or_none(self, email: str) -> 'VerificationRequest|None':
+        return (
+            self.get_queryset()
+            .filter(
+                email=email,
+                purpose=VerificationRequest.VerificationPurpose.FORGOT_PASSWORD,
+                otp_hash__isnull=True,
+                payload__has_key="reset_token_hash"
+            ).first()
+        )
+
 
 class VerificationRequest(models.Model):
     class VerificationPurpose(models.TextChoices):
         REGISTRATION = 'REGISTRATION'
-        RESET_PASSWORD = 'RESET_PASSWORD'
+        FORGOT_PASSWORD = 'FORGOT_PASSWORD'
 
 
     email = models.EmailField()
     purpose = models.CharField(choices=VerificationPurpose.choices, max_length=30)
-    otp_hash = models.CharField(max_length=128)
+    otp_hash = models.CharField(max_length=128, null=True, blank=True)
     payload = models.JSONField(default=dict, blank=True)
 
     attempts = models.PositiveSmallIntegerField(default=0)

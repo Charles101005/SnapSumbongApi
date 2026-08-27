@@ -17,7 +17,7 @@ class RegistrationRequestSerializer(serializers.Serializer):
 
     last_name = serializers.CharField(max_length=50)
     first_name = serializers.CharField(max_length=50)
-    middle_name = serializers.CharField(required=False, max_length=50, default=None, allow_null=True)
+    middle_name = serializers.CharField(required=False, max_length=50, default=None, allow_null=True, allow_blank=True)
 
 
     def validate_password(self, value):

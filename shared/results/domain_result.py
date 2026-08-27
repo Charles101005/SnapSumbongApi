@@ -19,3 +19,6 @@ class DomainResult[T]:
     @classmethod
     def error(cls, error: DomainError|DomainErrorWithMeta):
         return cls(is_success=False, error=error)
+
+    def unwrap(self) -> tuple[T|None, DomainError|DomainErrorWithMeta|None]:
+        return self.value, self.error

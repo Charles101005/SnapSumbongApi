@@ -25,7 +25,7 @@ def set_refresh_cookie(response: Response, refresh: str) -> None:
         httponly=True,
         secure=not settings.DEBUG,
         samesite='Lax',
-        path='/accounts/auth',
+        path='/accounts',
         max_age=cookie_max_age
     )
 
@@ -85,7 +85,7 @@ class LogoutView(APIView):
 
         response.delete_cookie(
             key='refresh',
-            path='/accounts/auth',
+            path='/accounts',
             samesite='Lax',
         )
 

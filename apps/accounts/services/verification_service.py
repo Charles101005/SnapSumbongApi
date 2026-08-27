@@ -1,3 +1,5 @@
+import hashlib
+import hmac
 import secrets
 import string
 from datetime import datetime
@@ -42,10 +44,28 @@ class VerificationService:
         return ''.join(secrets.choice(digits) for _ in range(length))
 
     @staticmethod
-    def _expires_at(now) -> datetime:
+    def expires_at(now: datetime) -> datetime:
         lifetime = VerificationService._config()['VERIFICATION_REQUEST_LIFETIME']
 
         return now + lifetime
+
+    @staticmethod
+    def generate_reset_token_and_hash() -> tuple[str, str]:
+        reset_token = secrets.token_urlsafe(32)
+
+        reset_token_hash = hashlib.sha256(
+            reset_token.encode('utf-8')
+        ).hexdigest()
+
+        return reset_token, reset_token_hash
+
+    @staticmethod
+    def verify_reset_token(*, provided_token: str, correct_token_hash: str) -> bool:
+        provided_token_hash = hashlib.sha256(
+            provided_token.encode('utf-8')
+        ).hexdigest()
+
+        return hmac.compare_digest(provided_token_hash, correct_token_hash)
 
     @staticmethod
     @transaction.atomic
@@ -56,7 +76,7 @@ class VerificationService:
             payload: dict
     ) -> DomainResult[VerificationRequest]:
         now = timezone.now()
-        expires_at = VerificationService._expires_at(now)
+        expires_at = VerificationService.expires_at(now)
 
         verification, created = VerificationRequest.objects.select_for_update().get_or_create(
             email=email,
@@ -190,7 +210,7 @@ class VerificationService:
         verification.otp_hash = otp_hash
         verification.attempts = 0
         verification.resend_count += 1
-        verification.expires_at = VerificationService._expires_at(now)
+        verification.expires_at = VerificationService.expires_at(now)
         verification.last_sent_at = now
 
         verification.save(

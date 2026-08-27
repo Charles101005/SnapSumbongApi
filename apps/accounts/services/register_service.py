@@ -38,28 +38,29 @@ class RegisterService:
             email: str,
             otp: str
     ) -> DomainResult[Users] :
-        verification_result: DomainResult[VerificationRequest] = VerificationService.verify(
+        verification, error = VerificationService.verify(
             email=email,
             purpose=VerificationRequest.VerificationPurpose.REGISTRATION,
             otp=otp
-        )
+        ).unwrap()
 
-        if not verification_result.is_success:
-            return DomainResult.error(verification_result.error)
+        if error: return DomainResult.error(error)
 
-        payload: dict = verification_result.value.payload
+        payload: dict = verification.payload
 
-        user: DomainResult[Users] = UserService.create_verified_citizen(
+        user, error = UserService.create_verified_citizen(
             email=email,
             password_hash=payload['password_hash'],
             last_name=payload['last_name'],
             first_name=payload['first_name'],
             middle_name=payload['middle_name'],
-        )
+        ).unwrap()
 
-        verification_result.value.delete()
+        if error: return DomainResult.error(error)
 
-        return DomainResult.success(user.value)
+        verification.delete()
+
+        return DomainResult.success(user)
 
     @staticmethod
     def resend_verification_code(email: str) -> DomainResult[VerificationRequest]:
