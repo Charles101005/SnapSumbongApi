@@ -1,12 +1,11 @@
-from django.contrib.auth.password_validation import validate_password
-from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 from rest_framework.validators import UniqueValidator
 
 from apps.accounts.models import Users
+from apps.accounts.serializers.base_serializer import BasePasswordValidationSerializer
 
 
-class RegistrationRequestSerializer(serializers.Serializer):
+class RegistrationRequestSerializer(BasePasswordValidationSerializer):
     email = serializers.EmailField(
         validators=[UniqueValidator(
             queryset=Users.objects.all(),
@@ -21,18 +20,4 @@ class RegistrationRequestSerializer(serializers.Serializer):
 
 
     def validate_password(self, value):
-        try:
-            validate_password(value)
-        except DjangoValidationError as e:
-            raise serializers.ValidationError(list(e.messages))
-
-        return value
-
-
-class VerifyRegistrationRequestSerializer(serializers.Serializer):
-    email = serializers.EmailField()
-    otp = serializers.CharField(write_only=True, min_length=4, max_length=4)
-
-
-class ResendVerificationCodeRequestSerializer(serializers.Serializer):
-    email = serializers.EmailField()
+        return self._validate_password_complexity(value)

@@ -73,7 +73,7 @@ class UserService:
         user = Users.objects.get_by_active_email_or_none(email)
 
         if user is None:
-            DomainResult.error(UserNotFoundError)
+            return DomainResult.error(UserNotFoundError)
 
         user.password = make_password(new_password)
 

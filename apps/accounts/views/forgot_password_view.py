@@ -5,37 +5,45 @@ from rest_framework.views import APIView
 
 from apps.accounts.services import ForgotPasswordService
 from shared.results import DomainResultResponse
+from apps.accounts.serializers.request.verification_serializer import (
+VerifyOTPCodeRequestSerializer,
+ResendOTPCodeRequestSerializer
+)
+from apps.accounts.serializers.response.verification_serializer import VerificationSessionCreationResponseSerializer
 from apps.accounts.serializers.request.forgot_password_serializer import (
 ForgotPasswordRequestSerializer,
-VerifyForgotPasswordRequestSerializer,
-ResendForgotPasswordVerificationCodeRequestSerializer,
 ResetPasswordRequestSerializer
 )
 from apps.accounts.serializers.response.forgot_password_serializer import (
-ForgotPasswordResponseSerializer,
 VerifyForgotPasswordResponseSerializer,
-ResendForgotPasswordVerificationCodeResponseSerializer,
 ResetPasswordResponseSerializer
 )
+from shared.views import BrowsableJSONViewMixin
 
 
-class ForgotPasswordView(APIView):
+class ForgotPasswordView(APIView, BrowsableJSONViewMixin):
+    serializer_class = ForgotPasswordRequestSerializer
+
     def post(self, request: Request) -> Response:
         serializer = ForgotPasswordRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         validated_data = serializer.validated_data
-        verification = ForgotPasswordService.request_reset_password(validated_data['email'])
+        ForgotPasswordService.request_reset_password(validated_data['email'])
 
-        return DomainResultResponse(verification).respond(
-            serializer_class=ForgotPasswordResponseSerializer,
-            success_status_code=status.HTTP_201_CREATED
+        return Response(
+            data={
+                "detail": f"Verification Code has been sent to {validated_data['email']}"
+            },
+            status=status.HTTP_200_OK
         )
 
 
-class VerifyForgotPasswordView(APIView):
+class VerifyForgotPasswordView(APIView, BrowsableJSONViewMixin):
+    serializer_class = VerifyOTPCodeRequestSerializer
+
     def post(self, request: Request) -> Response:
-        serializer = VerifyForgotPasswordRequestSerializer(data=request.data)
+        serializer = VerifyOTPCodeRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         validated_data = serializer.validated_data
@@ -49,21 +57,25 @@ class VerifyForgotPasswordView(APIView):
         )
 
 
-class ResendForgotPasswordVerificationCodeView(APIView):
+class ResendForgotPasswordVerificationCodeView(APIView, BrowsableJSONViewMixin):
+    serializer_class = ResendOTPCodeRequestSerializer
+
     def post(self, request: Request) -> Response:
-        serializer = ResendForgotPasswordVerificationCodeRequestSerializer(data=request.data)
+        serializer = ResendOTPCodeRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         validated_data = serializer.validated_data
         verification = ForgotPasswordService.resend_verification_code(validated_data['email'])
 
         return DomainResultResponse(verification).respond(
-            serializer_class=ResendForgotPasswordVerificationCodeResponseSerializer,
+            serializer_class=VerificationSessionCreationResponseSerializer,
             success_status_code=status.HTTP_200_OK
         )
 
 
-class ResetPasswordView(APIView):
+class ResetPasswordView(APIView, BrowsableJSONViewMixin):
+    serializer_class = ResetPasswordRequestSerializer
+
     def post(self, request: Request) -> Response:
         serializer = ResetPasswordRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)

@@ -33,7 +33,7 @@ class VerificationService:
 
     @staticmethod
     def _send_otp(*, email: str, purpose: str, otp: str) -> None:
-        # TODO: Connect to Email Integration
+        # TODO: SnapSumbong - Connect to Email Integration
         print(f"{email=}\n{purpose=}\n{otp=}")
 
     @staticmethod

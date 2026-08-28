@@ -22,5 +22,5 @@ urlpatterns = [
     path("forgot-password/", ForgotPasswordView.as_view(), name="forgot_password"),
     path("forgot-password/verify/", VerifyForgotPasswordView.as_view(), name="forgot_password_verify"),
     path("forgot-password/resend/", ResendForgotPasswordVerificationCodeView.as_view(), name="resend_forgot_password_code"),
-    path("reset-password/", ResetPasswordView.as_view(), name="reset_password"),
+    path("forgot-password/reset/", ResetPasswordView.as_view(), name="reset_password"),
 ]
