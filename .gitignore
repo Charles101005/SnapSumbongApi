@@ -14,3 +14,5 @@ ENV/
 db.sqlite3
 
 local_dev_ssl_files/
+.coverage
+htmlcov/

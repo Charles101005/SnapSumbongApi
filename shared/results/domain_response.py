@@ -28,10 +28,20 @@ class DomainResultResponse:
             *,
             serializer_class: type[Serializer]=None,
             success_status_code: int = status.HTTP_200_OK,
+            success_data_override: dict[str, Any]=None,
             serializer_context: dict[str, Any]=None,
     ) -> Response:
         if not self._result.is_success:
             return self._handle_error()
+
+        if success_data_override is not None:
+            return Response(data=success_data_override, status=success_status_code)
+
+        if self._result.value is None:
+            return Response(
+                data={"detail": "Operation completed successfully."},
+                status=success_status_code
+            )
 
         if serializer_class:
             context = serializer_context or {}

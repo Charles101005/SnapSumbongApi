@@ -5,18 +5,17 @@ from apps.accounts.models import Users, VerificationRequest
 from apps.accounts.services import UserService, AuthService
 from .verification_service import VerificationService
 from shared.results import DomainResult
-from apps.accounts.domain_errors.user_error import UserNotFoundError
 from apps.accounts.domain_errors.forgot_password_error import PasswordResetInvalidError
 from apps.accounts.exceptions.forgot_password_exception import ForgotPasswordRequestNotFoundException
 
 
 class ForgotPasswordService:
     @staticmethod
-    def request_reset_password(email: str) -> DomainResult[VerificationRequest]:
+    def request_reset_password(email: str) -> DomainResult[VerificationRequest|None]:
         user: Users = Users.objects.get_by_active_email_or_none(email=email)
 
         if user is None:
-            return DomainResult.error(UserNotFoundError)
+            return DomainResult.success(None)
 
         return VerificationService.create(
             email=email,

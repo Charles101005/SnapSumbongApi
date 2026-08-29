@@ -29,13 +29,14 @@ class ForgotPasswordView(APIView, BrowsableJSONViewMixin):
         serializer.is_valid(raise_exception=True)
 
         validated_data = serializer.validated_data
-        ForgotPasswordService.request_reset_password(validated_data['email'])
+        result = ForgotPasswordService.request_reset_password(validated_data['email'])
 
-        return Response(
-            data={
-                "detail": f"Verification Code has been sent to {validated_data['email']}"
-            },
-            status=status.HTTP_200_OK
+        return DomainResultResponse(result).respond(
+            success_status_code=status.HTTP_200_OK,
+            success_data_override={
+                "detail": f"Verification code has been sent to {validated_data['email']}",
+                "email": validated_data['email']
+            }
         )
 
 
