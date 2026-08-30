@@ -61,9 +61,10 @@ class Users(AbstractBaseUser):
     profile_picture = models.URLField(blank=True, null=True)
 
     is_notified = models.BooleanField(default=True)
-    is_verified = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True) ##
     is_staff = models.BooleanField(default=False) ##
+
+    has_changed_password = models.BooleanField(default=False)
 
     role = models.ForeignKey(Roles, on_delete=models.PROTECT)
 

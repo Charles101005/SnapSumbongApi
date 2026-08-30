@@ -31,7 +31,7 @@ class UserService:
             first_name=first_name,
             last_name=last_name,
             middle_name=middle_name,
-            is_verified=True,
+            has_changed_password=True,
         )
 
         return DomainResult.success(user)
