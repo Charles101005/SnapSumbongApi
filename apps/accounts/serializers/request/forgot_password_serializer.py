@@ -10,7 +10,7 @@ class ForgotPasswordRequestSerializer(serializers.Serializer):
 class ResetPasswordRequestSerializer(BasePasswordValidationSerializer):
     email = serializers.EmailField()
     reset_token = serializers.CharField(write_only=True)
-    new_password = serializers.CharField(write_only=True)
+    new_password = serializers.CharField(write_only=True, min_length=8)
 
     def validate_new_password(self, value):
         return self._validate_password_complexity(value)

@@ -2,6 +2,7 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.request import Request
 from rest_framework.views import APIView
+from rest_framework.permissions import AllowAny
 
 from apps.accounts.services import ForgotPasswordService
 from shared.results import DomainResultResponse
@@ -23,6 +24,7 @@ from shared.views import BrowsableJSONViewMixin
 
 class ForgotPasswordView(APIView, BrowsableJSONViewMixin):
     serializer_class = ForgotPasswordRequestSerializer
+    permission_classes = [AllowAny]
 
     def post(self, request: Request) -> Response:
         serializer = ForgotPasswordRequestSerializer(data=request.data)
@@ -42,6 +44,7 @@ class ForgotPasswordView(APIView, BrowsableJSONViewMixin):
 
 class VerifyForgotPasswordView(APIView, BrowsableJSONViewMixin):
     serializer_class = VerifyOTPCodeRequestSerializer
+    permission_classes = [AllowAny]
 
     def post(self, request: Request) -> Response:
         serializer = VerifyOTPCodeRequestSerializer(data=request.data)
@@ -52,6 +55,7 @@ class VerifyForgotPasswordView(APIView, BrowsableJSONViewMixin):
             email=validated_data['email'],
             otp=validated_data['otp'],
         )
+
         return DomainResultResponse(result).respond(
             serializer_class=VerifyForgotPasswordResponseSerializer,
             success_status_code=status.HTTP_200_OK
@@ -60,6 +64,7 @@ class VerifyForgotPasswordView(APIView, BrowsableJSONViewMixin):
 
 class ResendForgotPasswordVerificationCodeView(APIView, BrowsableJSONViewMixin):
     serializer_class = ResendOTPCodeRequestSerializer
+    permission_classes = [AllowAny]
 
     def post(self, request: Request) -> Response:
         serializer = ResendOTPCodeRequestSerializer(data=request.data)
@@ -76,6 +81,7 @@ class ResendForgotPasswordVerificationCodeView(APIView, BrowsableJSONViewMixin):
 
 class ResetPasswordView(APIView, BrowsableJSONViewMixin):
     serializer_class = ResetPasswordRequestSerializer
+    permission_classes = [AllowAny]
 
     def post(self, request: Request) -> Response:
         serializer = ResetPasswordRequestSerializer(data=request.data)

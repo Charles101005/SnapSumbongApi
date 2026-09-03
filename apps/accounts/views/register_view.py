@@ -2,6 +2,7 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.request import Request
 from rest_framework.views import APIView
+from rest_framework.permissions import AllowAny
 
 from apps.accounts.services import RegisterService
 from shared.results import DomainResultResponse
@@ -18,6 +19,7 @@ from shared.views import BrowsableJSONViewMixin
 
 class RegistrationView(APIView, BrowsableJSONViewMixin):
     serializer_class = RegistrationRequestSerializer
+    permission_classes = [AllowAny]
 
     def post(self, request: Request) -> Response:
         serializer = RegistrationRequestSerializer(data=request.data)
@@ -40,6 +42,7 @@ class RegistrationView(APIView, BrowsableJSONViewMixin):
 
 class VerifyRegistrationView(APIView, BrowsableJSONViewMixin):
     serializer_class = VerifyOTPCodeRequestSerializer
+    permission_classes = [AllowAny]
 
     def post(self, request: Request) -> Response:
         serializer = VerifyOTPCodeRequestSerializer(data=request.data)
@@ -59,6 +62,7 @@ class VerifyRegistrationView(APIView, BrowsableJSONViewMixin):
 
 class ResendRegisterVerificationCodeView(APIView, BrowsableJSONViewMixin):
     serializer_class = ResendOTPCodeRequestSerializer
+    permission_classes = [AllowAny]
 
     def post(self, request: Request) -> Response:
         serializer = ResendOTPCodeRequestSerializer(data=request.data)

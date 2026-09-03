@@ -58,7 +58,7 @@ class Users(AbstractBaseUser):
 
     email = models.EmailField(unique=True)
     contact_number = models.CharField(max_length=11, blank=True, null=True)
-    profile_picture = models.URLField(blank=True, null=True)
+    profile_picture = models.URLField(max_length=500, blank=True, null=True)
 
     is_notified = models.BooleanField(default=True)
     is_active = models.BooleanField(default=True) ##

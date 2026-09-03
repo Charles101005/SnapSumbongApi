@@ -1,6 +1,6 @@
 from rest_framework import status
 
-from shared.exceptions.base_exception import BaseDomainException
+from shared.exceptions import BaseDomainException
 
 
 class VerificationNotFoundException(BaseDomainException):

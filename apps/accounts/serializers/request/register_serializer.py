@@ -12,10 +12,10 @@ class RegistrationRequestSerializer(BasePasswordValidationSerializer):
             message="The provided email address is already in use."
         )],
     )
-    password = serializers.CharField(write_only=True)
+    password = serializers.CharField(write_only=True, min_length=8)
 
-    last_name = serializers.CharField(max_length=50)
-    first_name = serializers.CharField(max_length=50)
+    last_name = serializers.CharField(max_length=50, allow_null=False, allow_blank=False)
+    first_name = serializers.CharField(max_length=50, allow_null=False, allow_blank=False)
     middle_name = serializers.CharField(required=False, max_length=50, default=None, allow_null=True, allow_blank=True)
 
 

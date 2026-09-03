@@ -68,8 +68,6 @@ class RefreshView(TokenRefreshView):
 
 @method_decorator(csrf_protect, name='dispatch')
 class LogoutView(APIView):
-    permission_classes = [IsAuthenticated]
-
     def post(self, request: Request) -> Response:
         refresh: str = request.COOKIES.get('refresh')
 
