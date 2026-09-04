@@ -1,0 +1,1 @@
+from .all_permissions_registry import AllPermissions

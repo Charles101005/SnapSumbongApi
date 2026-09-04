@@ -4,7 +4,7 @@ from . import env
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 
-if env.DB_NAME and env.DB_USER and env.DB_PASSWORD and env.DB_HOST and env.DB_PORT:
+if not env.DEBUG or (env.DB_NAME and env.DB_USER and env.DB_PASSWORD and env.DB_HOST and env.DB_PORT):
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',

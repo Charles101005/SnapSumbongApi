@@ -66,7 +66,7 @@ class HazardReports(models.Model):
         related_name="assigned_hazard_reports",
     )
 
-    category = models.ForeignKey(HazardCategories, on_delete=models.PROTECT, related_name="hazard_reports")
+    categories = models.ManyToManyField(HazardCategories, related_name="hazard_reports")
     severity = models.CharField(max_length=2, choices=Severity.choices, null=True, blank=True, db_index=True)
 
     latitude = models.DecimalField(max_digits=8, decimal_places=6) # -90 to 90
