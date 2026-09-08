@@ -1,1 +1,2 @@
 from .report_service import ReportService
+from .hazard_category_service import HazardCategoryService

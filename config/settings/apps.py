@@ -20,6 +20,7 @@ LOCAL_APPS: list[str] = [
     'apps.analytics',
     'apps.audits',
     'shared.authorization',
+    'shared.utils',
 ]
 
 

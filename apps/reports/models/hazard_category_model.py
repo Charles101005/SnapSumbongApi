@@ -17,7 +17,7 @@ class HazardCategories(models.Model):
     hazard_id = models.AutoField(primary_key=True)
     hazard_name = models.CharField(max_length=50, unique=True)
     description = models.TextField(blank=True, default='')
-    response_time = models.PositiveSmallIntegerField()
+    response_time_days = models.PositiveSmallIntegerField()
     is_active = models.BooleanField(default=True)
 
 

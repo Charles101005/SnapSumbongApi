@@ -10,7 +10,7 @@ from django.conf import settings
 
 from shared.results import DomainResult
 from external.storage import StorageService, UploadIntent
-from apps.reports.models import HazardReports, HazardCategories, ReportImages
+from apps.reports.models import HazardReports, HazardCategories
 from apps.reports.exceptions.report_exception import InvalidImageCountException, InvalidHazardCategoryException
 from apps.accounts.services import UserService
 
@@ -34,7 +34,7 @@ class ReportService:
         unassigned_active_reports: QuerySet[HazardReports] = HazardReports.objects.filter(
             status=HazardReports.Status.NEW,
             assigned_to__isnull=True,
-        ).order_by('created_at')
+        ).order_by('created_at').select_for_update(skip_locked=True)[:5]
 
         if not unassigned_active_reports.exists():
             return

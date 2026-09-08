@@ -1,0 +1,1 @@
+from .hazard_category_constant import AllHazardCategory

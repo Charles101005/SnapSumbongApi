@@ -29,6 +29,7 @@ class DomainResultResponse:
             serializer_class: type[Serializer]=None,
             success_status_code: int = status.HTTP_200_OK,
             success_data_override: dict[str, Any]=None,
+            serializer_is_many: bool=False,
             serializer_context: dict[str, Any]=None,
     ) -> Response:
         if not self._result.is_success:
@@ -45,7 +46,7 @@ class DomainResultResponse:
 
         if serializer_class:
             context = serializer_context or {}
-            data = serializer_class(self._result.value, context=context).data
+            data = serializer_class(self._result.value, context=context, many=serializer_is_many).data
         else:
             data = self._result.value
 
