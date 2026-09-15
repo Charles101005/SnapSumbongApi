@@ -1,6 +1,8 @@
 from typing import Any
 
 from rest_framework import status
+from rest_framework.pagination import BasePagination
+from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.serializers import Serializer
 
@@ -52,5 +54,31 @@ class DomainResultResponse:
 
         return Response(data=data, status=success_status_code)
 
-    def respond_with_pagination(self):
-        pass
+    def respond_with_pagination(
+            self,
+            *,
+            request: Request,
+            pagination_class: type[BasePagination],
+            serializer_class: type[Serializer]=None,
+            success_status_code: int = status.HTTP_200_OK,
+    ) -> Response:
+        if not self._result.is_success:
+            return self._handle_error()
+
+        paginator = pagination_class()
+        page = paginator.paginate_queryset(self._result.value, request)
+
+        if page is not None:
+            serializer = serializer_class(
+                page,
+                many=True,
+                context={"request": request},
+            )
+            return paginator.get_paginated_response(serializer.data)
+
+        serializer = serializer_class(
+            self._result.value,
+            many=True,
+            context={"request": request}
+        )
+        return Response(serializer.data, status=success_status_code)

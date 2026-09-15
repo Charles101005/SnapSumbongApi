@@ -50,3 +50,9 @@ class CreateReportRequestSerializer(serializers.Serializer):
                 raise serializers.ValidationError("Invalid URL")
 
         return value
+
+
+class GetReportListRequestSerializer(serializers.Serializer):
+    category_id = serializers.IntegerField(required=False)
+    status = serializers.CharField(required=False)
+    created_at = serializers.DateField(required=False)

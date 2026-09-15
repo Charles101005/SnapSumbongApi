@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from rest_framework import serializers
 
 
@@ -20,3 +22,59 @@ class CreateReportResponseSerializer(serializers.Serializer):
     report_number = serializers.CharField(min_length=20, max_length=20)
     reported_by = serializers.CharField()
     created_at = serializers.DateTimeField()
+
+
+class GetReportListResponseSerializer(serializers.Serializer):
+    report_number = serializers.CharField(min_length=20, max_length=20)
+    categories = serializers.SerializerMethodField()
+    status = serializers.CharField(max_length=20)
+    created_at = serializers.DateTimeField()
+
+    def get_categories(self, value) -> list:
+        return list(value.categories.values_list("hazard_name", flat=True))
+
+
+class GetReportDetailResponseSerializer(serializers.Serializer):
+    report_number = serializers.CharField(min_length=20, max_length=20)
+    status = serializers.CharField(max_length=20)
+
+    latitude = serializers.DecimalField(
+        max_digits=8,
+        decimal_places=6,
+        min_value=Decimal('-90.0'),
+        max_value=Decimal('90.0')
+    )
+    longitude = serializers.DecimalField(
+        max_digits=9,
+        decimal_places=6,
+        min_value=Decimal('-180.0'),
+        max_value=Decimal('180.0')
+    )
+
+    address = serializers.CharField(max_length=255)
+    description = serializers.CharField()
+
+    image_urls = serializers.SerializerMethodField()
+    status_timeline = serializers.SerializerMethodField()
+
+    def get_image_urls(self, value) -> list:
+        return [image.image_url for image in value.images.all()]
+
+    def get_status_timeline(self, value) -> list:
+        status_timeline = []
+
+        for audit_log in value.audit_logs.all():
+            payload = audit_log.payload
+
+            if payload.get("initial_status"):
+                status_timeline.append({
+                    "status": payload["initial_status"],
+                    "created_at": audit_log.created_at.isoformat(),
+                })
+                continue
+
+            status_timeline.append({
+                "status": payload["status_change"]["to"],
+                "created_at": audit_log.created_at.isoformat(),
+            })
+        return status_timeline

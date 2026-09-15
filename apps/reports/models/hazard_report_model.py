@@ -1,6 +1,11 @@
 from django.db import models
+from django.contrib.contenttypes.fields import GenericRelation
 
 from .hazard_category_model import HazardCategories
+
+
+class HazardReportManager(models.Manager):
+    pass
 
 
 class HazardReports(models.Model):
@@ -67,6 +72,7 @@ class HazardReports(models.Model):
     )
 
     categories = models.ManyToManyField(HazardCategories, related_name="hazard_reports")
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.NEW, db_index=True)
     severity = models.CharField(max_length=2, choices=Severity.choices, null=True, blank=True, db_index=True)
 
     latitude = models.DecimalField(max_digits=8, decimal_places=6) # -90 to 90
@@ -74,8 +80,16 @@ class HazardReports(models.Model):
     address = models.CharField(max_length=255)
 
     description = models.TextField()
-    status = models.CharField(max_length=20, choices=Status.choices, default=Status.NEW, db_index=True)
     is_anonymous = models.BooleanField(default=False)
 
     created_at = models.DateTimeField(auto_now_add=True)
     resolved_at = models.DateTimeField(null=True)
+
+    audit_logs = GenericRelation(
+        "apps_audits.AuditLogs",
+        object_id_field="object_id",
+        content_type_field="content_type"
+    )
+
+
+    objects = HazardReportManager()

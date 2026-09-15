@@ -8,11 +8,17 @@ from django.db import transaction
 from django.db.models import Count, QuerySet
 from django.conf import settings
 
+from apps.accounts.models import Users
 from shared.results import DomainResult
 from external.storage import StorageService, UploadIntent
 from apps.reports.models import HazardReports, HazardCategories
 from apps.reports.exceptions.report_exception import InvalidImageCountException, InvalidHazardCategoryException
+from apps.reports.exceptions.report_exception import ReportDoesNotExistException
 from apps.accounts.services import UserService
+from apps.audits.services import AuditLogService
+from apps.audits.models import AuditLogs
+from shared.authorization.service import AuthorizationService
+from shared.authorization import AllPermissions
 
 
 class ReportService:
@@ -30,13 +36,16 @@ class ReportService:
         return f"{PREFIX}-{date_str}-{suffix_str}"
 
     @staticmethod
+    @transaction.atomic
     def _process_unassigned_reports() -> None:
-        unassigned_active_reports: QuerySet[HazardReports] = HazardReports.objects.filter(
-            status=HazardReports.Status.NEW,
-            assigned_to__isnull=True,
-        ).order_by('created_at').select_for_update(skip_locked=True)[:5]
+        unassigned_active_reports: list = list(
+            HazardReports.objects.filter(
+                status=HazardReports.Status.NEW,
+                assigned_to__isnull=True,
+            ).order_by('created_at').select_for_update(skip_locked=True)[:5]
+        )
 
-        if not unassigned_active_reports.exists():
+        if not unassigned_active_reports:
             return
 
         for report in unassigned_active_reports:
@@ -46,11 +55,23 @@ class ReportService:
                 return
 
             report.assigned_to = assigned_staff
+
+            old_status = report.status
             report.status = HazardReports.Status.OPEN
+
             report.save(update_fields=[
                 'assigned_to',
                 'status',
             ])
+
+            AuditLogService.log_report_status_change(
+                user=None,
+                old_status=old_status,
+                payload={
+                    "status_change": {"from": old_status, "to": report.status},
+                },
+                report=report
+            )
 
     @staticmethod
     def _get_next_report_assigned_to():
@@ -67,6 +88,23 @@ class ReportService:
 
         assigned_staff = UserService.get_next_staff_for_assignment(staff_to_active_report_map)
         return assigned_staff
+
+    @staticmethod
+    def _authorized_reports(user: Users) -> QuerySet[HazardReports]:
+        if AuthorizationService.has_perm(user, AllPermissions.REPORTS.READ_ALL):
+            queryset = HazardReports.objects.all()
+
+        elif AuthorizationService.has_perm(user, AllPermissions.REPORTS.READ_ASSIGNED):
+            queryset = HazardReports.objects.filter(assigned_to_id=user.user_id)
+
+        else:
+            queryset = HazardReports.objects.filter(reported_by_id=user.user_id)
+
+        return queryset
+
+    @staticmethod
+    def get_status_list() -> DomainResult[list[str]]:
+        return DomainResult.success([status.value for status in HazardReports.Status])
 
     @staticmethod
     def get_hazard_image_upload_credentials(image_count: int) -> DomainResult[dict[str, Any]]:
@@ -127,4 +165,59 @@ class ReportService:
         for image_url in image_urls:
             report.images.create(image_url=image_url)
 
+        AuditLogService.log_create(
+            user=report.reported_by,
+            module=AuditLogs.ModuleType.REPORT,
+            payload={
+                "initial_status": report.status,
+                "assigned_to": assigned_staff.email if assigned_staff else None,
+            },
+            target_object=report
+        )
+
         return DomainResult.success(report)
+
+    @staticmethod
+    def list_authorized_reports(
+            *,
+            user: Users,
+            query_filters: dict[str, Any]
+    ) -> DomainResult[HazardReports]:
+        authorized_reports = ReportService._authorized_reports(user=user)
+
+        queryset = authorized_reports.prefetch_related("categories")
+
+        filter_map = {
+            "category_id": "categories__hazard_id",
+            "status": "status",
+            "created_at": "created_at__date",
+        }
+
+        filters = {
+            filter_map[key]: value
+            for key, value in query_filters.items()
+            if key in filter_map and value is not None
+        }
+
+        if filters:
+            queryset = queryset.filter(**filters)
+
+        return DomainResult.success(queryset.order_by("-created_at"))
+
+    @staticmethod
+    def get_authorized_reports(
+            *,
+            user: Users,
+            report_number: str
+    ) -> DomainResult[HazardReports]:
+        authorized_reports = ReportService._authorized_reports(user=user)
+
+        report = authorized_reports.filter(
+            report_number=report_number
+        ).prefetch_related("images", "audit_logs").first()
+
+        if not report:
+            raise ReportDoesNotExistException()
+
+        return DomainResult.success(report)
+

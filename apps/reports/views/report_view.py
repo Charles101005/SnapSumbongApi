@@ -5,18 +5,23 @@ from rest_framework import status
 
 from apps.reports.services import ReportService
 from shared.results import DomainResultResponse
-from shared.views import BrowsableJSONViewMixin
+from shared.authorization.decorators import require_perm, require_any_perms
+from shared.authorization import AllPermissions
+from shared.pagination import StandardListPagination
 from apps.reports.serializers.request.report_serializer import (
     ReportImageSignatureRequestSerializer,
-    CreateReportRequestSerializer
+    CreateReportRequestSerializer,
+    GetReportListRequestSerializer
 )
 from apps.reports.serializers.response.report_serializer import (
     ReportImageSignatureResponseSerializer,
-    CreateReportResponseSerializer
+    CreateReportResponseSerializer,
+    GetReportListResponseSerializer,
+    GetReportDetailResponseSerializer
 )
 
 
-class ReportImageSignatureView(APIView, BrowsableJSONViewMixin):
+class ReportImageSignatureView(APIView):
     serializer_class = ReportImageSignatureRequestSerializer
 
     def get(self, request: Request) -> Response:
@@ -32,10 +37,27 @@ class ReportImageSignatureView(APIView, BrowsableJSONViewMixin):
         )
 
 
-class ReportListView(APIView, BrowsableJSONViewMixin):
+class ReportListView(APIView):
+    @require_any_perms(
+        AllPermissions.REPORTS.READ_ALL,
+        AllPermissions.REPORTS.READ_ASSIGNED,
+        AllPermissions.REPORTS.READ_OWN,
+    )
     def get(self, request: Request) -> Response:
-        pass
+        serializer = GetReportListRequestSerializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
 
+        validated_data = serializer.validated_data
+        result = ReportService.list_authorized_reports(user=request.user, query_filters=validated_data)
+
+        return DomainResultResponse(result).respond_with_pagination(
+            request=request,
+            pagination_class=StandardListPagination,
+            serializer_class=GetReportListResponseSerializer,
+            success_status_code=status.HTTP_200_OK
+        )
+
+    @require_perm(AllPermissions.REPORTS.CREATE)
     def post(self, request: Request) -> Response:
         serializer = CreateReportRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -58,9 +80,14 @@ class ReportListView(APIView, BrowsableJSONViewMixin):
         )
 
 
-class ReportDetailView(APIView, BrowsableJSONViewMixin):
+class ReportDetailView(APIView):
     def get(self, request: Request, report_number: str) -> Response:
-        pass
+        result = ReportService.get_authorized_reports(user=request.user, report_number=report_number)
+
+        return DomainResultResponse(result).respond(
+            serializer_class=GetReportDetailResponseSerializer,
+            success_status_code=status.HTTP_200_OK,
+        )
 
     def put(self, request: Request, report_number: str) -> Response:
         pass
