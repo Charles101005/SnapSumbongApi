@@ -1,16 +1,9 @@
 from django.db import models
-from django.db.models import QuerySet
 
 
 class HazardCategoriesManager(models.Manager):
-    def get_by_ids_or_none(self, hazard_ids: list[int]) -> 'QuerySet[HazardCategories]|None':
-        existing_ids = set(
-            self.filter(hazard_id__in=hazard_ids).values_list('hazard_id', flat=True)
-        )
-
-        if len(existing_ids) != len(set(hazard_ids)):
-            return None
-        return self.filter(hazard_id__in=hazard_ids)
+    def get_by_id_or_none(self, hazard_id: int) -> 'HazardCategories|None':
+        return self.filter(hazard_id=hazard_id).first()
 
 
 class HazardCategories(models.Model):

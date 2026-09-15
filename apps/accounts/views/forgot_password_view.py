@@ -19,11 +19,9 @@ from apps.accounts.serializers.response.forgot_password_serializer import (
 VerifyForgotPasswordResponseSerializer,
 ResetPasswordResponseSerializer
 )
-from shared.views import BrowsableJSONViewMixin
 
 
-class ForgotPasswordView(APIView, BrowsableJSONViewMixin):
-    serializer_class = ForgotPasswordRequestSerializer
+class ForgotPasswordView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request: Request) -> Response:
@@ -42,8 +40,7 @@ class ForgotPasswordView(APIView, BrowsableJSONViewMixin):
         )
 
 
-class VerifyForgotPasswordView(APIView, BrowsableJSONViewMixin):
-    serializer_class = VerifyOTPCodeRequestSerializer
+class VerifyForgotPasswordView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request: Request) -> Response:
@@ -62,8 +59,7 @@ class VerifyForgotPasswordView(APIView, BrowsableJSONViewMixin):
         )
 
 
-class ResendForgotPasswordVerificationCodeView(APIView, BrowsableJSONViewMixin):
-    serializer_class = ResendOTPCodeRequestSerializer
+class ResendForgotPasswordVerificationCodeView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request: Request) -> Response:
@@ -79,8 +75,7 @@ class ResendForgotPasswordVerificationCodeView(APIView, BrowsableJSONViewMixin):
         )
 
 
-class ResetPasswordView(APIView, BrowsableJSONViewMixin):
-    serializer_class = ResetPasswordRequestSerializer
+class ResetPasswordView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request: Request) -> Response:

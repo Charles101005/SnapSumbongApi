@@ -7,7 +7,7 @@ from apps.reports.services import ReportService
 from shared.results import DomainResultResponse
 from shared.authorization.decorators import require_perm, require_any_perms
 from shared.authorization import AllPermissions
-from shared.pagination import StandardListPagination
+from shared.pagination import SmallListPagination
 from apps.reports.serializers.request.report_serializer import (
     ReportImageSignatureRequestSerializer,
     CreateReportRequestSerializer,
@@ -22,8 +22,6 @@ from apps.reports.serializers.response.report_serializer import (
 
 
 class ReportImageSignatureView(APIView):
-    serializer_class = ReportImageSignatureRequestSerializer
-
     def get(self, request: Request) -> Response:
         serializer = ReportImageSignatureRequestSerializer(data=request.query_params)
         serializer.is_valid(raise_exception=True)
@@ -52,7 +50,7 @@ class ReportListView(APIView):
 
         return DomainResultResponse(result).respond_with_pagination(
             request=request,
-            pagination_class=StandardListPagination,
+            pagination_class=SmallListPagination,
             serializer_class=GetReportListResponseSerializer,
             success_status_code=status.HTTP_200_OK
         )
@@ -65,7 +63,7 @@ class ReportListView(APIView):
         validated_data = serializer.validated_data
         result = ReportService.create_assign_hazard_report(
             reported_by_id=request.user.user_id,
-            category_ids=validated_data["category_ids"],
+            category_id=validated_data["category_id"],
             latitude=validated_data["latitude"],
             longitude=validated_data["longitude"],
             address=validated_data["address"],
@@ -81,6 +79,11 @@ class ReportListView(APIView):
 
 
 class ReportDetailView(APIView):
+    @require_any_perms(
+        AllPermissions.REPORTS.READ_ALL,
+        AllPermissions.REPORTS.READ_ASSIGNED,
+        AllPermissions.REPORTS.READ_OWN,
+    )
     def get(self, request: Request, report_number: str) -> Response:
         result = ReportService.get_authorized_reports(user=request.user, report_number=report_number)
 

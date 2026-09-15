@@ -71,7 +71,7 @@ class HazardReports(models.Model):
         related_name="assigned_hazard_reports",
     )
 
-    categories = models.ManyToManyField(HazardCategories, related_name="hazard_reports")
+    category = models.ForeignKey(HazardCategories, on_delete=models.PROTECT, related_name="hazard_reports")
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.NEW, db_index=True)
     severity = models.CharField(max_length=2, choices=Severity.choices, null=True, blank=True, db_index=True)
 
@@ -81,6 +81,8 @@ class HazardReports(models.Model):
 
     description = models.TextField()
     is_anonymous = models.BooleanField(default=False)
+
+    remarks = models.TextField(blank=True, null=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     resolved_at = models.DateTimeField(null=True)

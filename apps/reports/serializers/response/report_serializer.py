@@ -26,12 +26,12 @@ class CreateReportResponseSerializer(serializers.Serializer):
 
 class GetReportListResponseSerializer(serializers.Serializer):
     report_number = serializers.CharField(min_length=20, max_length=20)
-    categories = serializers.SerializerMethodField()
+    category = serializers.SerializerMethodField()
     status = serializers.CharField(max_length=20)
     created_at = serializers.DateTimeField()
 
-    def get_categories(self, value) -> list:
-        return list(value.categories.values_list("hazard_name", flat=True))
+    def get_category(self, value) -> list:
+        return value.category.hazard_name
 
 
 class GetReportDetailResponseSerializer(serializers.Serializer):

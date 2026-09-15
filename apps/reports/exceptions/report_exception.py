@@ -10,7 +10,7 @@ class InvalidImageCountException(BaseDomainException):
 
 
 class InvalidHazardCategoryException(BaseDomainException):
-    detail: str = "The provided hazard categories are invalid"
+    detail: str = "The provided hazard category are invalid"
     status_code: int = status.HTTP_400_BAD_REQUEST
     error_code: str = "INVALID_HAZARD_CATEGORY"
 

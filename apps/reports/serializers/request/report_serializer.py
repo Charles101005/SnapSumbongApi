@@ -14,11 +14,7 @@ class ReportImageSignatureRequestSerializer(serializers.Serializer):
 
 
 class CreateReportRequestSerializer(serializers.Serializer):
-    category_ids = serializers.ListField(
-        child=serializers.IntegerField(),
-        min_length=1,
-        max_length=3
-    )
+    category_id = serializers.IntegerField()
     latitude = serializers.DecimalField(
         max_digits=8,
         decimal_places=6,

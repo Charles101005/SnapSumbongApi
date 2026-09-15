@@ -130,7 +130,7 @@ class ReportService:
     def create_assign_hazard_report(
             *,
             reported_by_id: int,
-            category_ids: list[int],
+            category_id: int,
             latitude: Decimal,
             longitude: Decimal,
             address: str,
@@ -138,9 +138,9 @@ class ReportService:
             is_anonymous: bool,
             image_urls: list[str],
     ) -> DomainResult[HazardReports]:
-        categories = HazardCategories.objects.get_by_ids_or_none(category_ids)
+        category = HazardCategories.objects.get_by_id_or_none(category_id)
 
-        if not categories:
+        if not category:
             raise InvalidHazardCategoryException()
 
         ReportService._process_unassigned_reports()
@@ -152,6 +152,7 @@ class ReportService:
             report_number=ReportService._generate_report_number(),
             reported_by_id=reported_by_id,
             assigned_to=assigned_staff,
+            category=category,
             latitude=latitude,
             longitude=longitude,
             address=address,
@@ -159,8 +160,6 @@ class ReportService:
             status=initial_status,
             is_anonymous=is_anonymous
         )
-
-        report.categories.set(categories)
 
         for image_url in image_urls:
             report.images.create(image_url=image_url)
@@ -185,10 +184,10 @@ class ReportService:
     ) -> DomainResult[HazardReports]:
         authorized_reports = ReportService._authorized_reports(user=user)
 
-        queryset = authorized_reports.prefetch_related("categories")
+        queryset = authorized_reports.select_related("category")
 
         filter_map = {
-            "category_id": "categories__hazard_id",
+            "category_id": "category__hazard_id",
             "status": "status",
             "created_at": "created_at__date",
         }

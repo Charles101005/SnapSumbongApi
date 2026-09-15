@@ -13,12 +13,10 @@ ResendOTPCodeRequestSerializer
 from apps.accounts.serializers.response.verification_serializer import VerificationSessionCreationResponseSerializer
 from apps.accounts.serializers.request.register_serializer import RegistrationRequestSerializer
 from apps.accounts.serializers.response.register_serializer import VerifyRegistrationResponseSerializer
-from shared.views import BrowsableJSONViewMixin
 
 
 
-class RegistrationView(APIView, BrowsableJSONViewMixin):
-    serializer_class = RegistrationRequestSerializer
+class RegistrationView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request: Request) -> Response:
@@ -40,8 +38,7 @@ class RegistrationView(APIView, BrowsableJSONViewMixin):
         )
 
 
-class VerifyRegistrationView(APIView, BrowsableJSONViewMixin):
-    serializer_class = VerifyOTPCodeRequestSerializer
+class VerifyRegistrationView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request: Request) -> Response:
@@ -60,8 +57,7 @@ class VerifyRegistrationView(APIView, BrowsableJSONViewMixin):
         )
 
 
-class ResendRegisterVerificationCodeView(APIView, BrowsableJSONViewMixin):
-    serializer_class = ResendOTPCodeRequestSerializer
+class ResendRegisterVerificationCodeView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request: Request) -> Response:
