@@ -19,10 +19,11 @@ class AnalyticService:
         else:
             queryset = HazardReports.objects.filter(reported_by_id=user.user_id)
 
+        total_count = queryset.count()
         queryset = queryset.values("status").annotate(count=Count("report_id"))
 
         metrics = {
-            "total_count": queryset.count(),
+            "total_count": total_count,
             "count_by_status": {item["status"].lower(): item["count"] for item in queryset},
         }
 
