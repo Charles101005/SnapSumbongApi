@@ -19,8 +19,8 @@ class CloudinaryClient:
 
     def _map_intent_to_upload_preset(self, intent: UploadIntent) -> str:
         mapping = {
-            UploadIntent.HAZARD_REPORT: "hazard_report_image",
-            UploadIntent.USER_PROFILE: "user_profile_picture"
+            UploadIntent.HAZARD_REPORTS: "hazard_report_image",
+            UploadIntent.USER_PROFILES: "user_profile_picture"
         }
         return mapping[intent]
 

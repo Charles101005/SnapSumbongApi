@@ -2,7 +2,6 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_protect
 from django.middleware.csrf import rotate_token
 from rest_framework import status
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.request import Request
 from rest_framework.views import APIView
@@ -91,8 +90,6 @@ class LogoutView(APIView):
 
 
 class CurrentUserView(APIView):
-    permission_classes = [IsAuthenticated]
-
     def get(self, request: Request) -> Response:
         serializer = CurrentUserResponseSerializer(request.user)
 

@@ -112,7 +112,7 @@ class ReportService:
             raise InvalidImageCountException()
 
         now = timezone.now()
-        folder_path = f"hazard_reports/{now.strftime('%Y')}/{now.strftime('%m')}"
+        folder_path = f"{UploadIntent.HAZARD_REPORTS.value}/{now.strftime('%Y')}/{now.strftime('%m')}"
 
         batch_id = secrets.token_urlsafe(16)
         file_names = [f"{batch_id}_img{i}" for i in range(1, image_count + 1)]
@@ -120,7 +120,7 @@ class ReportService:
         upload_credentials = StorageService.get_upload_credentials(
             folder_path=folder_path,
             file_names=file_names,
-            intent=UploadIntent.HAZARD_REPORT
+            intent=UploadIntent.HAZARD_REPORTS
         )
 
         return DomainResult.success(upload_credentials)

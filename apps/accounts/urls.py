@@ -8,6 +8,7 @@ VerifyForgotPasswordView,
 ResendForgotPasswordVerificationCodeView,
 ResetPasswordView
 )
+from .views.profile_view import ProfileView, change_password, deactivate_account_view, profile_image_signature_view
 
 urlpatterns = [
     path("auth/login/", LoginView.as_view(), name="login"),
@@ -23,4 +24,9 @@ urlpatterns = [
     path("forgot-password/verify/", VerifyForgotPasswordView.as_view(), name="forgot_password_verify"),
     path("forgot-password/resend/", ResendForgotPasswordVerificationCodeView.as_view(), name="resend_forgot_password_code"),
     path("forgot-password/reset/", ResetPasswordView.as_view(), name="reset_password"),
+
+    path("profile/", ProfileView.as_view(), name="profile"),
+    path("profile/change-password/", change_password, name="change_password"),
+    path("profile/deactivate/", deactivate_account_view, name="deactivate_account"),
+    path("profile/image-signature/", profile_image_signature_view, name="profile_image_signature"),
 ]

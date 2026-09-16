@@ -7,7 +7,7 @@ class CurrentUserResponseSerializer(serializers.Serializer):
     email = serializers.EmailField()
     first_name = serializers.CharField(max_length=50)
     last_name = serializers.CharField(max_length=50)
-    middle_name = serializers.CharField(max_length=50, allow_blank=True, allow_null=True)
+    middle_name = serializers.CharField(max_length=50, default=None)
     role = serializers.SerializerMethodField()
     is_staff = serializers.BooleanField()
     permissions = serializers.SerializerMethodField()

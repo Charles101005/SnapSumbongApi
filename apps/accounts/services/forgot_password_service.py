@@ -95,7 +95,7 @@ class ForgotPasswordService:
         ):
             return DomainResult.error(PasswordResetInvalidError)
 
-        user, error = UserService.change_password(
+        user, error = UserService.unauthenticated_change_password(
             email=email,
             new_password=new_password
         ).unwrap()

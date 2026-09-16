@@ -28,11 +28,11 @@ class DomainResultResponse:
     def respond(
             self,
             *,
-            serializer_class: type[Serializer]=None,
+            serializer_class: type[Serializer]|None=None,
             success_status_code: int = status.HTTP_200_OK,
-            success_data_override: dict[str, Any]=None,
+            success_data_override: dict[str, Any]|None=None,
             serializer_is_many: bool=False,
-            serializer_context: dict[str, Any]=None,
+            serializer_context: dict[str, Any]|None=None,
     ) -> Response:
         if not self._result.is_success:
             return self._handle_error()
@@ -59,7 +59,7 @@ class DomainResultResponse:
             *,
             request: Request,
             pagination_class: type[BasePagination],
-            serializer_class: type[Serializer]=None,
+            serializer_class: type[Serializer]|None=None,
             success_status_code: int = status.HTTP_200_OK,
     ) -> Response:
         if not self._result.is_success:

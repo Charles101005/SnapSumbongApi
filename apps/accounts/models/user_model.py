@@ -48,6 +48,12 @@ class UserManager(BaseUserManager):
             is_active=True,
         ).first()
 
+    def get_by_active_id_or_none(self, user_id: int) -> 'Users|None':
+        return self.filter(
+            user_id=user_id,
+            is_active=True,
+        ).first()
+
 
 class Users(AbstractBaseUser):
     user_id = models.AutoField(primary_key=True)

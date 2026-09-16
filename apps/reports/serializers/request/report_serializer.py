@@ -3,7 +3,7 @@ from decimal import Decimal
 from rest_framework import serializers
 from django.conf import settings
 
-from external.storage import StorageService
+from external.storage import StorageService, UploadIntent
 
 
 class ReportImageSignatureRequestSerializer(serializers.Serializer):
@@ -32,14 +32,14 @@ class CreateReportRequestSerializer(serializers.Serializer):
     is_anonymous = serializers.BooleanField(default=False)
 
     image_urls = serializers.ListField(
-        child=serializers.URLField(),
+        child=serializers.URLField(max_length=500),
         min_length=1,
         max_length=settings.STORAGE_CONFIG['MAX_SIGNATURE_COUNT']
     )
 
     def validate_image_urls(self, value):
         expected_base_url = StorageService.get_expected_response_base_url()
-        expected_folder = "/hazard_reports/"
+        expected_folder = f"/{UploadIntent.HAZARD_REPORTS.value}/"
 
         for url in value:
             if not url.startswith(expected_base_url) or expected_folder not in url:
