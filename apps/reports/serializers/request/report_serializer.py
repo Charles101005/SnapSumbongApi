@@ -49,7 +49,27 @@ class CreateReportRequestSerializer(serializers.Serializer):
 
 
 class GetReportListRequestSerializer(serializers.Serializer):
+    #base
     q = serializers.CharField(required=False)
     category_id = serializers.IntegerField(required=False)
     status = serializers.CharField(required=False)
+
+    #non-staff only
     created_at = serializers.DateField(required=False)
+
+    #staff only
+    severity = serializers.CharField(required=False, min_length=2, max_length=2)
+    from_date = serializers.DateField(required=False)
+    to_date = serializers.DateField(required=False)
+
+    def validate(self, attrs):
+        user = self.context.get("user")
+
+        if user and user.is_staff:
+            attrs.pop("created_at", None)
+        else:
+            attrs.pop("severity", None)
+            attrs.pop("from_date", None)
+            attrs.pop("to_date", None)
+
+        return attrs

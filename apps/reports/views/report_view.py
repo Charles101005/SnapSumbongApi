@@ -42,7 +42,10 @@ class ReportListView(APIView):
         AllPermissions.REPORTS.READ_OWN,
     )
     def get(self, request: Request) -> Response:
-        serializer = GetReportListRequestSerializer(data=request.query_params)
+        serializer = GetReportListRequestSerializer(
+            data=request.query_params,
+            context={"user": request.user}
+        )
         serializer.is_valid(raise_exception=True)
 
         validated_data = serializer.validated_data
@@ -52,6 +55,7 @@ class ReportListView(APIView):
             request=request,
             pagination_class=SmallListPagination,
             serializer_class=GetReportListResponseSerializer,
+            serializer_context={"user": request.user},
             success_status_code=status.HTTP_200_OK
         )
 

@@ -61,9 +61,12 @@ class DomainResultResponse:
             pagination_class: type[BasePagination],
             serializer_class: type[Serializer]|None=None,
             success_status_code: int = status.HTTP_200_OK,
+            serializer_context: dict[str, Any]|None=None
     ) -> Response:
         if not self._result.is_success:
             return self._handle_error()
+
+        context = {"request": request, **(serializer_context or {})}
 
         paginator = pagination_class()
         page = paginator.paginate_queryset(self._result.value, request)
@@ -72,13 +75,13 @@ class DomainResultResponse:
             serializer = serializer_class(
                 page,
                 many=True,
-                context={"request": request},
+                context=context
             )
             return paginator.get_paginated_response(serializer.data)
 
         serializer = serializer_class(
             self._result.value,
             many=True,
-            context={"request": request}
+            context=context
         )
         return Response(serializer.data, status=success_status_code)

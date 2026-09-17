@@ -107,6 +107,10 @@ class ReportService:
         return DomainResult.success([status.value for status in HazardReports.Status])
 
     @staticmethod
+    def get_severity_list() -> DomainResult[list[str]]:
+        return DomainResult.success([severity.value for severity in HazardReports.Severity])
+
+    @staticmethod
     def get_hazard_image_upload_credentials(image_count: int) -> DomainResult[dict[str, Any]]:
         if image_count <= 0 or image_count > settings.STORAGE_CONFIG["MAX_SIGNATURE_COUNT"]:
             raise InvalidImageCountException()
@@ -190,6 +194,9 @@ class ReportService:
             "category_id": "category__hazard_id",
             "status": "status",
             "created_at": "created_at__date",
+            "severity": "severity",
+            "from_date": "created_at__date__gte",
+            "to_date": "created_at__date__lte",
         }
 
         filters = {

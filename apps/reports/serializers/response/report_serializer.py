@@ -25,13 +25,28 @@ class CreateReportResponseSerializer(serializers.Serializer):
 
 
 class GetReportListResponseSerializer(serializers.Serializer):
+    #base/non-staff
     report_number = serializers.CharField(min_length=20, max_length=20)
     category = serializers.SerializerMethodField()
     status = serializers.CharField(max_length=20)
     created_at = serializers.DateTimeField()
 
-    def get_category(self, value) -> list:
+    #staff only
+    severity = serializers.CharField(min_length=2, max_length=2)
+    address = serializers.CharField(max_length=225)
+
+    def get_category(self, value) -> str:
         return value.category.hazard_name
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        user = self.context.get("user")
+
+        if not user or not user.is_staff:
+            data.pop("severity", None)
+            data.pop("address", None)
+
+        return data
 
 
 class GetReportDetailResponseSerializer(serializers.Serializer):
