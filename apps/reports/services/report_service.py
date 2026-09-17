@@ -5,7 +5,7 @@ from decimal import Decimal
 
 from django.utils import timezone
 from django.db import transaction
-from django.db.models import Count, QuerySet
+from django.db.models import Count, QuerySet, Q
 from django.conf import settings
 
 from apps.accounts.models import Users
@@ -200,6 +200,15 @@ class ReportService:
 
         if filters:
             queryset = queryset.filter(**filters)
+
+        search_query = query_filters.get("q")
+        if search_query:
+            search_query = search_query.strip()
+
+            queryset = queryset.filter(
+                Q(report_number__icontains=search_query) |
+                Q(category__hazard_name__icontains=search_query)
+            )
 
         return DomainResult.success(queryset.order_by("-created_at"))
 

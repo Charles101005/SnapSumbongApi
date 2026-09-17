@@ -49,6 +49,7 @@ class CreateReportRequestSerializer(serializers.Serializer):
 
 
 class GetReportListRequestSerializer(serializers.Serializer):
+    q = serializers.CharField(required=False)
     category_id = serializers.IntegerField(required=False)
     status = serializers.CharField(required=False)
     created_at = serializers.DateField(required=False)
