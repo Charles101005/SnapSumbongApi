@@ -1,5 +1,4 @@
 import secrets
-import string
 from typing import Any
 from decimal import Decimal
 
@@ -34,19 +33,6 @@ from shared.authorization import AllPermissions
 
 
 class ReportService:
-    @staticmethod
-    def _generate_report_number() -> str:
-        # REPT-YYYYMMDD-6RandomBase36Chars
-
-        PREFIX = "REPT"
-        SUFFIX_LENGTH = 6
-        SUFFIX_CHOICES = string.digits + string.ascii_uppercase
-
-        date_str = timezone.now().strftime("%Y%m%d")
-        suffix_str = ''.join(secrets.choice(SUFFIX_CHOICES) for _ in range(SUFFIX_LENGTH))
-
-        return f"{PREFIX}-{date_str}-{suffix_str}"
-
     @staticmethod
     @transaction.atomic
     def _process_unassigned_reports() -> None:
@@ -113,7 +99,7 @@ class ReportService:
         return queryset
 
     @staticmethod
-    def get_status_list() -> DomainResult[list[str]]:
+    def get_status_list() -> DomainResult[list[dict[str, str]]]:
         return DomainResult.success(
             [
                 {
@@ -180,7 +166,6 @@ class ReportService:
         initial_status = HazardReports.Status.ASSIGNED if assigned_staff else HazardReports.Status.NEW
 
         report: HazardReports = HazardReports.objects.create(
-            report_number=ReportService._generate_report_number(),
             reported_by_id=reported_by_id,
             assigned_to=assigned_staff,
             category=category,
@@ -268,7 +253,9 @@ class ReportService:
             "category"
         ).prefetch_related(
             "images",
-            "audit_logs"
+            "audit_logs",
+            "audit_logs__user",
+            "audit_logs__user__role"
         ).first()
 
         if not report:

@@ -1,4 +1,5 @@
 from rest_framework.views import APIView
+from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework.request import Request
 from rest_framework import status
@@ -18,7 +19,8 @@ from apps.reports.serializers.response.report_serializer import (
     ReportImageSignatureResponseSerializer,
     CreateReportResponseSerializer,
     GetReportListResponseSerializer,
-    GetReportDetailResponseSerializer
+    GetReportDetailResponseSerializer,
+    GetReportHistoryDetailResponseSerializer
 )
 
 
@@ -123,3 +125,20 @@ class ReportDetailView(APIView):
         return DomainResultResponse(result).respond(
             success_status_code=status.HTTP_200_OK,
         )
+
+
+@api_view(["GET"])
+@require_any_perms(
+    AllPermissions.REPORTS.READ_ASSIGNED,
+    AllPermissions.REPORTS.READ_ALL,
+)
+def report_history_detail_view(request: Request, report_number: str) -> Response:
+    result = ReportService.get_authorized_reports(
+        user=request.user,
+        report_number=report_number
+    )
+
+    return DomainResultResponse(result).respond(
+        serializer_class=GetReportHistoryDetailResponseSerializer,
+        success_status_code=status.HTTP_200_OK,
+    )

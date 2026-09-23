@@ -8,7 +8,7 @@ from apps.reports.serializers.response.lookup_serializer import LookupFilterCiti
 
 
 @api_view(["GET"])
-def lookup_filter_citizen_report_view(request: Request):
+def lookup_filter_citizen_report_view(request: Request) -> Response:
     lookup_filters = {
         "categories": HazardCategoryService.get_all_category().value,
         "statuses": ReportService.get_status_list().value,

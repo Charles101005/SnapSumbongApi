@@ -50,6 +50,20 @@ class AuditLogService:
         )
 
     @staticmethod
+    def log_update(
+            *,
+            user: Users,
+    ) -> None:
+        pass
+
+    @staticmethod
+    def log_deactivate(
+            *,
+            user: Users,
+    ) -> None:
+        pass
+
+    @staticmethod
     def log_report_status_change(
             *,
             user: Users|None,
