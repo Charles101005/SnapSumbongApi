@@ -58,6 +58,7 @@ class GetReportListRequestSerializer(serializers.Serializer):
     created_at = serializers.DateField(required=False)
 
     #staff only
+    exclude_closed = serializers.BooleanField(required=False, default=False)
     severity = serializers.CharField(required=False, min_length=2, max_length=2)
     from_date = serializers.DateField(required=False)
     to_date = serializers.DateField(required=False)
@@ -68,8 +69,30 @@ class GetReportListRequestSerializer(serializers.Serializer):
         if user and user.is_staff:
             attrs.pop("created_at", None)
         else:
+            attrs.pop("exclude_closed", None)
             attrs.pop("severity", None)
             attrs.pop("from_date", None)
             attrs.pop("to_date", None)
 
         return attrs
+
+
+class UpdateReportRequestSerializer(serializers.Serializer):
+    severity = serializers.CharField()
+    status = serializers.CharField()
+    remarks = serializers.CharField()
+    resolution_image_urls = serializers.ListField(
+        child=serializers.URLField(max_length=500),
+        min_length=1,
+        max_length=settings.STORAGE_CONFIG['MAX_SIGNATURE_COUNT']
+    )
+
+    def validate_resolution_image_urls(self, value):
+        expected_base_url = StorageService.get_expected_response_base_url()
+        expected_folder = f"/{UploadIntent.REPORT_RESOLUTION.value}/"
+
+        for url in value:
+            if not url.startswith(expected_base_url) or expected_folder not in url:
+                raise serializers.ValidationError("Invalid URL")
+
+        return value

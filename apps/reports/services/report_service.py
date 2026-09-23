@@ -12,8 +12,20 @@ from apps.accounts.models import Users
 from shared.results import DomainResult
 from external.storage import StorageService, UploadIntent
 from apps.reports.models import HazardReports, HazardCategories
-from apps.reports.exceptions.report_exception import InvalidImageCountException, InvalidHazardCategoryException
-from apps.reports.exceptions.report_exception import ReportDoesNotExistException
+from apps.reports.exceptions.report_exception import (
+    InvalidImageCountException,
+    InvalidHazardCategoryException,
+    ReportDoesNotExistException,
+    InvalidReportStatusException,
+    InvalidReportSeverityException,
+)
+from apps.reports.domain_errors.report_error import (
+    DuplicateStatusTransitionError,
+    InvalidReportUpdateError,
+    StatusResolutionImageConflictError,
+    MandatoryRemarksStatusError,
+    ResolutionImageRequiredError,
+)
 from apps.accounts.services import UserService
 from apps.audits.services import AuditLogService
 from apps.audits.models import AuditLogs
@@ -56,8 +68,8 @@ class ReportService:
 
             report.assigned_to = assigned_staff
 
-            old_status = report.status
-            report.status = HazardReports.Status.OPEN
+            old_status = HazardReports.Status(report.status)
+            report.status = HazardReports.Status.ASSIGNED
 
             report.save(update_fields=[
                 'assigned_to',
@@ -66,10 +78,8 @@ class ReportService:
 
             AuditLogService.log_report_status_change(
                 user=None,
-                old_status=old_status,
-                payload={
-                    "status_change": {"from": old_status, "to": report.status},
-                },
+                old_status=old_status.label,
+                new_status=report.status.label,
                 report=report
             )
 
@@ -104,19 +114,36 @@ class ReportService:
 
     @staticmethod
     def get_status_list() -> DomainResult[list[str]]:
-        return DomainResult.success([status.value for status in HazardReports.Status])
+        return DomainResult.success(
+            [
+                {
+                    "label": status.label,
+                    "value": status.value,
+                }
+                for status in HazardReports.Status
+            ]
+        )
 
     @staticmethod
     def get_severity_list() -> DomainResult[list[str]]:
         return DomainResult.success([severity.value for severity in HazardReports.Severity])
 
     @staticmethod
-    def get_hazard_image_upload_credentials(image_count: int) -> DomainResult[dict[str, Any]]:
+    def get_hazard_image_upload_credentials(
+            *,
+            user: Users,
+            image_count: int
+    ) -> DomainResult[dict[str, Any]]:
         if image_count <= 0 or image_count > settings.STORAGE_CONFIG["MAX_SIGNATURE_COUNT"]:
             raise InvalidImageCountException()
 
+        if AuthorizationService.has_perm(user, AllPermissions.REPORTS.UPDATE_ASSIGNED):
+            intent: UploadIntent = UploadIntent.REPORT_RESOLUTION
+        else:
+            intent: UploadIntent = UploadIntent.HAZARD_REPORTS
+
         now = timezone.now()
-        folder_path = f"{UploadIntent.HAZARD_REPORTS.value}/{now.strftime('%Y')}/{now.strftime('%m')}"
+        folder_path = f"{intent.value}/{now.strftime('%Y')}/{now.strftime('%m')}"
 
         batch_id = secrets.token_urlsafe(16)
         file_names = [f"{batch_id}_img{i}" for i in range(1, image_count + 1)]
@@ -124,7 +151,7 @@ class ReportService:
         upload_credentials = StorageService.get_upload_credentials(
             folder_path=folder_path,
             file_names=file_names,
-            intent=UploadIntent.HAZARD_REPORTS
+            intent=intent
         )
 
         return DomainResult.success(upload_credentials)
@@ -150,7 +177,7 @@ class ReportService:
         ReportService._process_unassigned_reports()
 
         assigned_staff = ReportService._get_next_report_assigned_to()
-        initial_status = HazardReports.Status.OPEN if assigned_staff else HazardReports.Status.NEW
+        initial_status = HazardReports.Status.ASSIGNED if assigned_staff else HazardReports.Status.NEW
 
         report: HazardReports = HazardReports.objects.create(
             report_number=ReportService._generate_report_number(),
@@ -172,10 +199,11 @@ class ReportService:
             user=report.reported_by,
             module=AuditLogs.ModuleType.REPORT,
             payload={
-                "initial_status": report.status,
+                "initial_status": report.status.label,
                 "assigned_to": assigned_staff.email if assigned_staff else None,
             },
-            target_object=report
+            target_object=report,
+            target_identifier=report.report_number
         )
 
         return DomainResult.success(report)
@@ -188,13 +216,19 @@ class ReportService:
     ) -> DomainResult[HazardReports]:
         authorized_reports = ReportService._authorized_reports(user=user)
 
+        is_exclude_closed = query_filters.get("exclude_closed")
+        if is_exclude_closed:
+            closed_statuses = [status for status in HazardReports.Status if status.phase == 4]
+
+            authorized_reports = authorized_reports.exclude(status__in=closed_statuses)
+
         queryset = authorized_reports.select_related("category")
 
         filter_map = {
             "category_id": "category__hazard_id",
-            "status": "status",
+            "status": "status__iexact",
             "created_at": "created_at__date",
-            "severity": "severity",
+            "severity": "severity__iexact",
             "from_date": "created_at__date__gte",
             "to_date": "created_at__date__lte",
         }
@@ -228,11 +262,106 @@ class ReportService:
         authorized_reports = ReportService._authorized_reports(user=user)
 
         report = authorized_reports.filter(
-            report_number=report_number
-        ).prefetch_related("images", "audit_logs").first()
+            report_number__iexact=report_number
+        ).select_related(
+            "reported_by",
+            "category"
+        ).prefetch_related(
+            "images",
+            "audit_logs"
+        ).first()
 
         if not report:
             raise ReportDoesNotExistException()
 
+        report.next_expected_statuses = HazardReports.Status(report.status).get_next_expected_statuses()
+
         return DomainResult.success(report)
+
+    @staticmethod
+    @transaction.atomic
+    def update_authorized_assigned_report(
+            *,
+            user: Users,
+            report_number: str,
+            new_status_str: str|None=None,
+            new_severity_str: str|None=None,
+            remarks: str|None=None,
+            resolution_image_urls: list[str]|None=None
+    ) -> DomainResult[None]:
+        authorized_reports = ReportService._authorized_reports(user=user)
+
+        report = authorized_reports.filter(report_number__iexact=report_number).first()
+        if not report:
+            raise ReportDoesNotExistException()
+
+        updated_fields: list[str] = []
+
+        new_status_str = new_status_str.strip().upper() if new_status_str else None
+        new_severity_str = new_severity_str.strip().upper() if new_severity_str else None
+        remarks = remarks.strip() if remarks else None
+
+        if (remarks and not new_status_str) or (resolution_image_urls and not new_status_str):
+            return DomainResult.error(InvalidReportUpdateError)
+
+        if new_status_str:
+            if new_status_str not in HazardReports.Status:
+                raise InvalidReportStatusException()
+
+            if new_status_str == report.status:
+                return DomainResult.error(DuplicateStatusTransitionError)
+
+            if new_status_str in HazardReports.Status.get_mandatory_remarks_statuses() and not remarks:
+                return DomainResult.error(MandatoryRemarksStatusError)
+
+            old_status = HazardReports.Status(report.status)
+            report.status = HazardReports.Status(new_status_str)
+            updated_fields.append("status")
+
+            report.remarks = remarks
+            updated_fields.append("remarks")
+
+            if new_status_str == HazardReports.Status.RESOLVED:
+                if not resolution_image_urls:
+                    return DomainResult.error(ResolutionImageRequiredError)
+
+                report.resolved_at = timezone.now()
+                updated_fields.append("resolved_at")
+
+                for resolution_image_url in resolution_image_urls:
+                    report.images.create(
+                        image_url=resolution_image_url,
+                        is_resolution=True
+                    )
+            else:
+                if resolution_image_urls:
+                    return DomainResult.error(StatusResolutionImageConflictError)
+
+            AuditLogService.log_report_status_change(
+                user=user,
+                old_status=old_status.label,
+                new_status=report.status.label,
+                remarks=remarks,
+                report=report
+            )
+
+        if new_severity_str:
+            if new_severity_str not in HazardReports.Severity:
+                raise InvalidReportSeverityException()
+
+            old_severity = report.severity
+            report.severity = new_severity_str
+            updated_fields.append("severity")
+
+            AuditLogService.log_report_severity_change(
+                user=user,
+                old_severity=old_severity,
+                new_severity=report.severity,
+                report=report
+            )
+
+        if updated_fields:
+            report.save(update_fields=updated_fields)
+
+        return DomainResult.success(None)
 

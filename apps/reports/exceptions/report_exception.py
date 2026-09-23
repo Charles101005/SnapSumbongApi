@@ -19,3 +19,15 @@ class ReportDoesNotExistException(BaseDomainException):
     detail: str = "The specified report does not exist"
     status_code: int = status.HTTP_400_BAD_REQUEST
     error_code: str = "REPORT_DOES_NOT_EXIST"
+
+
+class InvalidReportStatusException(BaseDomainException):
+    detail: str = "The specified report status is invalid"
+    status_code: int = status.HTTP_400_BAD_REQUEST
+    error_code: str = "INVALID_REPORT_STATUS"
+
+
+class InvalidReportSeverityException(BaseDomainException):
+    detail: str = "The specified report severity is invalid"
+    status_code: int = status.HTTP_400_BAD_REQUEST
+    error_code: str = "INVALID_REPORT_SEVERITY"

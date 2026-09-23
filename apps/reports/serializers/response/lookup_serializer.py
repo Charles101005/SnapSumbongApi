@@ -3,7 +3,7 @@ from rest_framework import serializers
 
 class LookupFilterCitizenReportResponseSerializer(serializers.Serializer):
     categories = serializers.SerializerMethodField()
-    statuses = serializers.ListField(child=serializers.CharField())
+    statuses = serializers.ListField(child=serializers.DictField())
     severities = serializers.ListField(child=serializers.CharField())
 
     def get_categories(self, obj):

@@ -18,38 +18,62 @@ class HazardReports(models.Model):
 
 
     class Status(models.TextChoices):
-        # Phase 1: Intake and Assignment
-        NEW = 'NEW', 'New - Newly Submitted'
-        OPEN = 'OPEN', 'Open - Assigned to Officer'
+        # Phase 1: Intake and Assignment(more for the system)
+        NEW = 'NEW', 'New' #'Newly Submitted'
+        ASSIGNED = 'ASSIGNED', 'Assigned' #'Assigned to Officer'
 
         # Phase 2: Report Verification
-        IN_PROGRESS = 'IN_PROGRESS', 'In Progress - Being worked on/Report Verification'
-        PENDING = 'PENDING', 'Pending - Invalid/Insufficient Information'
-        ON_HOLD = 'ON_HOLD', 'On Hold - Out of Jurisdiction/Need External Department'
+        UNDER_REVIEW = 'UNDER_REVIEW', 'Under Review' #'Being worked on/Report Verification'
+        ON_HOLD = 'ON_HOLD', 'On-Hold' #'Out of Jurisdiction/Need External Department' #
 
         # Phase 3: Action
-        UNDER_REPAIR = 'UNDER_REPAIR', 'Under Repair - Dispatched Engineers'
+        DISPATCHED = 'DISPATCHED', 'Dispatched' #'Dispatched Engineers'
 
         # Phase 4: Resolution and Closure
-        RESOLVED = 'RESOLVED', 'Resolved - Issue is solved but needs user verification'
-        CLOSED = 'CLOSED', 'Closed - Automatically or manually closed'
+        RESOLVED = 'RESOLVED', 'Resolved' #'Issue is solved but needs user verification'
+        CLOSED = 'CLOSED', 'Closed' #'Automatically or manually closed' #
 
         @property
         def phase(self) -> int:
             phase_map = {
                 self.NEW: 1,
-                self.OPEN: 1,
+                self.ASSIGNED: 1,
 
-                self.IN_PROGRESS: 2,
-                self.PENDING: 2,
+                self.UNDER_REVIEW: 2,
                 self.ON_HOLD: 2,
 
-                self.UNDER_REPAIR: 3,
+                self.DISPATCHED: 3,
 
                 self.RESOLVED: 4,
                 self.CLOSED: 4,
             }
             return phase_map[self]
+
+        @classmethod
+        def get_main_statuses(cls) -> list:
+            return [
+                cls.ASSIGNED,
+                cls.UNDER_REVIEW,
+                cls.DISPATCHED,
+                cls.RESOLVED,
+            ]
+
+        @classmethod
+        def get_mandatory_remarks_statuses(cls) -> list:
+            return [
+                cls.ON_HOLD,
+                cls.CLOSED,
+            ]
+
+        def get_next_expected_statuses(self) -> list:
+            current_phase = self.phase
+            main_statuses = self.get_main_statuses()
+
+            return [
+                status.label
+                for status in main_statuses
+                if status.phase > current_phase
+            ]
 
 
     report_id = models.BigAutoField(primary_key=True)
