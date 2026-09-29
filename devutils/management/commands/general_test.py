@@ -1,6 +1,6 @@
-from django.core.management.base import BaseCommand
+from devutils.base import DebugOnlyCommand
 
 
-class Command(BaseCommand):
+class Command(DebugOnlyCommand):
     def handle(self, *args, **options):
         pass

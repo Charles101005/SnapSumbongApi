@@ -21,6 +21,12 @@ class AnalyticPermissions:
 
     READ_EMPLOYEE_METRICS: PermissionDefinition = PermissionDefinition(
         name='analytic:read_employee_metrics',
+        description='Allows the role to READ basic metrics of employees',
+        module=_module,
+    )
+
+    READ_EMPLOYEE_PERFORMANCE: PermissionDefinition = PermissionDefinition(
+        name='analytic:read_employee_performance',
         description='Allows the role to READ performance metrics of employees',
         module=_module,
     )

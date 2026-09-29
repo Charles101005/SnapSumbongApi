@@ -1,8 +1,8 @@
 import secrets
-from django.core.management.base import BaseCommand
+from devutils.base import DebugOnlyCommand
 
 
-class Command(BaseCommand):
+class Command(DebugOnlyCommand):
     def handle(self, *args, **options):
         print("Secure Key:", secrets.token_urlsafe(50))
         print("Please Clear Console.".upper())

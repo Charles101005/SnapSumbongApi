@@ -1,24 +1,8 @@
-import string
-import secrets
-
 from django.db import models
-from django.utils import timezone
 from django.contrib.contenttypes.fields import GenericRelation
 
 from .hazard_category_model import HazardCategories
-
-
-def _generate_report_number() -> str:
-    # REPT-YYYYMMDD-6RandomBase36Chars
-
-    PREFIX = "REPT"
-    SUFFIX_LENGTH = 6
-    SUFFIX_CHOICES = string.digits + string.ascii_uppercase
-
-    date_str = timezone.now().strftime("%Y%m%d")
-    suffix_str = ''.join(secrets.choice(SUFFIX_CHOICES) for _ in range(SUFFIX_LENGTH))
-
-    return f"{PREFIX}-{date_str}-{suffix_str}"
+from shared.utils import model_number_generator
 
 
 class HazardReportManager(models.Manager):
@@ -139,9 +123,9 @@ class HazardReports(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.report_number:
-            self.report_number = _generate_report_number()
+            self.report_number = model_number_generator("REPT")
 
             while HazardReports.objects.filter(report_number=self.report_number).exists():
-                self.report_number = _generate_report_number()
+                self.report_number = model_number_generator("REPT")
 
         super().save(*args, **kwargs)

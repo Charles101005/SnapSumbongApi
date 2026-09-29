@@ -1,23 +1,8 @@
-import string
-import secrets
-
 from django.db import models
-from django.utils import timezone
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.fields import GenericForeignKey
 
-
-def _generate_audit_log_number() -> str:
-    # LOG-YYYYMMDD-6RandomBase36Chars
-
-    PREFIX = "LOG"
-    SUFFIX_LENGTH = 6
-    SUFFIX_CHOICES = string.digits + string.ascii_uppercase
-
-    date_str = timezone.now().strftime("%Y%m%d")
-    suffix_str = ''.join(secrets.choice(SUFFIX_CHOICES) for _ in range(SUFFIX_LENGTH))
-
-    return f"{PREFIX}-{date_str}-{suffix_str}"
+from shared.utils import model_number_generator
 
 
 class AuditLogs(models.Model):
@@ -77,9 +62,9 @@ class AuditLogs(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.audit_log_number:
-            self.audit_log_number = _generate_audit_log_number()
+            self.audit_log_number = model_number_generator("LOG")
 
             while AuditLogs.objects.filter(audit_log_number=self.audit_log_number).exists():
-                self.audit_log_number = _generate_audit_log_number()
+                self.audit_log_number = model_number_generator("LOG")
 
         super().save(*args, **kwargs)

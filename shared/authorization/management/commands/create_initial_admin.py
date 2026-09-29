@@ -1,4 +1,7 @@
 from getpass import getpass
+
+from django.core.validators import validate_email
+from django.core.exceptions import ValidationError
 from django.core.management.base import BaseCommand, CommandError
 
 from apps.accounts.models import Users, Roles
@@ -6,7 +9,6 @@ from shared.authorization.default_initial_role import AllDefaultRoles
 
 
 class Command(BaseCommand):
-    email = 'initial_admin@snapsumbong.com'
     first_name = 'Initial Admin'
     last_name = 'User'
 
@@ -18,6 +20,16 @@ class Command(BaseCommand):
 
         if Users.objects.filter(role=admin_role).exists():
             raise CommandError('A System Admin account already exists.')
+
+        while True:
+            email = str(input("Email: "))
+
+            try:
+                validate_email(email)
+                break
+            except ValidationError:
+                print('\tEmail is not valid.')
+                continue
 
         while True:
             password = getpass('Password: ')
@@ -40,7 +52,7 @@ class Command(BaseCommand):
 
 
         Users.objects.create_user(
-            email=self.email,
+            email=email,
             password=password,
             role=admin_role,
             first_name=self.first_name,
@@ -50,5 +62,5 @@ class Command(BaseCommand):
         )
 
         self.stdout.write(self.style.SUCCESS(
-            f"Initial System Administrator account created. Login using '{self.email}' email."
+            f"Initial System Administrator account created. Login using '{email}' email."
         ))

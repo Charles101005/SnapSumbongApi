@@ -1,9 +1,10 @@
 import os
 from django.conf import settings
-from django.core.management.base import BaseCommand, CommandError
+from django.core.management.base import CommandError
+from devutils.base import DebugOnlyCommand
 from django.core.management import call_command
 
-class Command(BaseCommand):
+class Command(DebugOnlyCommand):
     help = "Starts a local secure HTTPS dev server with a custom local domain"
 
     backend_dev_url = 'api.localhost.test:8000'

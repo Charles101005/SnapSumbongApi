@@ -3,6 +3,7 @@ from django.contrib.auth.base_user import BaseUserManager
 from django.db import models
 
 from .role_model import Roles
+from shared.utils import model_number_generator
 
 
 class UserManager(BaseUserManager):
@@ -57,6 +58,7 @@ class UserManager(BaseUserManager):
 
 class Users(AbstractBaseUser):
     user_id = models.AutoField(primary_key=True)
+    user_number = models.CharField(max_length=20, unique=True, editable=False, db_index=True)
 
     last_name = models.CharField(max_length=50)
     first_name = models.CharField(max_length=50)
@@ -82,6 +84,19 @@ class Users(AbstractBaseUser):
     USERNAME_FIELD = 'email'
 
     objects = UserManager()
+
+    def get_full_name(self) -> str:
+        middle_name = f" {self.middle_name[0].upper()}" if self.middle_name else ""
+        return f"{self.last_name}, {self.first_name}" + middle_name
+
+    def save(self, *args, **kwargs):
+        if not self.user_number:
+            self.user_number = model_number_generator("USER")
+
+            while Users.objects.filter(user_number=self.user_number).exists():
+                self.user_number = model_number_generator("USER")
+
+        super().save(**kwargs)
 
     def __str__(self):
         return self.email

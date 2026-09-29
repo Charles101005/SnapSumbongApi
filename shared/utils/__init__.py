@@ -1,0 +1,1 @@
+from .utils import model_number_generator

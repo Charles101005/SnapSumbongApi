@@ -3,7 +3,7 @@ import secrets
 
 from django.db import transaction
 from django.core.management import call_command
-from django.core.management.base import BaseCommand
+from devutils.base import DebugOnlyCommand
 
 from apps.audits.models import AuditLogs
 
@@ -19,7 +19,7 @@ def _generate_audit_log_number(created_at) -> str:
 
     return f"{PREFIX}-{date_str}-{suffix_str}"
 
-class Command(BaseCommand):
+class Command(DebugOnlyCommand):
     def handle(self, *args, **options):
         start_migration = "0003_auditlogs_audit_log_number"
 

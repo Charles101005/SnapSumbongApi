@@ -14,6 +14,6 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='auditlogs',
             name='audit_log_number',
-            field=models.CharField(db_index=True, default=apps.audits.models.audit_log_model._generate_audit_log_number, max_length=20, unique=True),
+            field=models.CharField(db_index=True, max_length=20, unique=True),
         ),
     ]

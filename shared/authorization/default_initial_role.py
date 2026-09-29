@@ -21,6 +21,8 @@ class AllDefaultRoles:
         role-based access control (RBAC) configurations, and view audit logs.""".split()),
         is_protected=False,
         permissions=(
+            AllPermissions.USERS.READ_OWN,
+            AllPermissions.USERS.UPDATE_OWN,
             AllPermissions.USERS.READ_ALL,
             AllPermissions.USERS.DEACTIVATE_ANY,
             AllPermissions.USERS.ACTIVATE_ANY,
@@ -55,7 +57,12 @@ class AllDefaultRoles:
         permissions=(
             AllPermissions.REPORTS.READ_ALL,
 
-            AllPermissions.ANALYTICS.READ_EMPLOYEE_METRICS,
+            AllPermissions.USERS.READ_OWN,
+            AllPermissions.USERS.UPDATE_OWN,
+
+            AllPermissions.EMPLOYEES.READ_ALL,
+
+            AllPermissions.ANALYTICS.READ_EMPLOYEE_PERFORMANCE,
             AllPermissions.ANALYTICS.READ_ALL_METRICS,
             AllPermissions.ANALYTICS.READ_DASHBOARD,
 
@@ -71,6 +78,9 @@ class AllDefaultRoles:
         permissions=(
             AllPermissions.REPORTS.READ_ASSIGNED,
             AllPermissions.REPORTS.UPDATE_ASSIGNED,
+
+            AllPermissions.USERS.READ_OWN,
+            AllPermissions.USERS.UPDATE_OWN,
 
             AllPermissions.ANALYTICS.READ_ASSIGNED_METRICS,
         )
