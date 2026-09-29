@@ -181,3 +181,16 @@ class UserService:
         )
 
         return DomainResult.success(upload_credential)
+
+    @staticmethod
+    def list_users(
+            *,
+            list_staff: bool,
+    ) -> DomainResult[Users]:
+        queryset = Users.objects.filter(
+            is_staff=list_staff
+        ).select_related(
+            "role"
+        ).order_by("-last_active")
+
+        return DomainResult.success(queryset)
