@@ -28,7 +28,7 @@ AUTH_USER_MODEL = "apps_accounts.Users"
 SIMPLE_JWT = {
     'SIGNING_KEY': env.JWT_SECRET_KEY,
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=5),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=30),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
     "USER_ID_FIELD": "user_id",
 }
 
