@@ -4,7 +4,7 @@ from shared.results import DomainError
 
 
 UserNotFoundError = DomainError(
-    detail="No account was found with that email address.",
+    detail="No account was found with that email/user number.",
     status_code=status.HTTP_404_NOT_FOUND,
     error_code="USER_NOT_FOUND",
 )

@@ -2,6 +2,7 @@ import hmac
 import hashlib
 from typing import Any
 
+from django.contrib.auth.base_user import AbstractBaseUser
 from django.contrib.auth.hashers import make_password
 from django.db.models import Case, When, Value, IntegerField
 from django.db import transaction
@@ -185,12 +186,67 @@ class UserService:
     @staticmethod
     def list_users(
             *,
-            list_staff: bool,
+            is_staff: bool,
     ) -> DomainResult[Users]:
         queryset = Users.objects.filter(
-            is_staff=list_staff
+            is_staff=is_staff
         ).select_related(
             "role"
         ).order_by("-last_active")
 
         return DomainResult.success(queryset)
+
+    @staticmethod
+    def get_user(
+            *,
+            user_number: str,
+            is_staff: bool,
+    ) -> DomainResult[Users]:
+        user = Users.objects.filter(
+            user_number__iexact=user_number,
+            is_staff=is_staff
+        ).select_related("role").first()
+
+        if user is None:
+            return DomainResult.error(UserNotFoundError)
+
+        return DomainResult.success(user)
+
+    @staticmethod
+    def update_user(
+            *,
+            user_number: str,
+            list_staff: bool,
+            fields: dict[str, Any],
+    ) -> DomainResult[None]:
+        user = Users.objects.filter(
+            user_number__iexact=user_number,
+            is_staff=list_staff
+        ).first()
+
+        updated_fields: list[str] = []
+
+        if user is None:
+            return DomainResult.error(UserNotFoundError)
+
+        is_active = fields.get("is_active")
+        if is_active and is_active != user.is_active:
+            user.is_active = is_active
+            updated_fields.append("is_active")
+
+        if list_staff:
+
+            role_id = fields.get("role_id")
+            if role_id and role_id != user.role_id:
+                role = Roles.objects.get_by_id_or_none(role_id)
+                if role is None:
+                    raise RoleNotFoundException()
+
+                user.role = role
+                updated_fields.append("role_id")
+
+        if updated_fields:
+            user.save(update_fields=updated_fields)
+
+        return DomainResult.success(None)
+

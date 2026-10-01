@@ -1,7 +1,5 @@
 from datetime import timedelta
 
-import cloudinary
-
 from . import env
 
 # Password validation
@@ -19,6 +17,9 @@ AUTH_PASSWORD_VALIDATORS = [
     },
     {
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+    },
+    {
+        'NAME': 'apps.accounts.validator.TraditionalPasswordComplexityValidator',
     },
 ]
 

@@ -6,6 +6,7 @@ from rest_framework.response import Response
 from rest_framework.request import Request
 from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from rest_framework.serializers import ValidationError
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
 from django.conf import settings
@@ -54,7 +55,14 @@ class RefreshView(TokenRefreshView):
         serializer = self.get_serializer(
             data={'refresh': refresh},
         )
-        serializer.is_valid(raise_exception=True)
+
+        try:
+            serializer.is_valid(raise_exception=True)
+        except (TokenError, ValidationError):
+            return Response(
+                data={'detail': 'Invalid/expired refresh token'},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
 
         data = serializer.validated_data
 
@@ -73,7 +81,7 @@ class LogoutView(APIView):
         if refresh:
             try:
                 RefreshToken(refresh).blacklist()
-            except TokenError:
+            except (TokenError, ValidationError):
                 pass
 
         response: Response = Response(

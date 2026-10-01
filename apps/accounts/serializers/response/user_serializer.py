@@ -17,9 +17,25 @@ class UserListResponseSerializer(serializers.Serializer):
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        list_staff: bool= self.context.get("list_staff")
+        is_staff: bool= self.context.get("is_staff")
 
-        if not list_staff:
+        if not is_staff:
             data.pop("role", None)
 
         return data
+
+
+class UserDetailResponseSerializer(serializers.Serializer):
+    first_name = serializers.CharField()
+    last_name = serializers.CharField()
+    middle_name = serializers.CharField(default=None)
+    email = serializers.EmailField()
+    role = serializers.SerializerMethodField()
+
+    is_active = serializers.BooleanField()
+
+    last_active = serializers.DateTimeField()
+    created_at = serializers.DateTimeField()
+
+    def get_role(self, obj) -> str:
+        return obj.role.role_name
