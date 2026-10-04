@@ -83,7 +83,7 @@ class UserService:
             first_name: str,
             middle_name: str | None = None
     ) -> DomainResult[Users]:
-        staff_role: Roles = Roles.objects.get_by_code_or_none(role_code)
+        staff_role: Roles = Roles.objects.get_by_code_or_none(role_code.upper())
 
         if not staff_role:
             raise RoleNotFoundException()
