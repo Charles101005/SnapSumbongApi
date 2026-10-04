@@ -11,6 +11,7 @@ ResetPasswordView
 from .views.profile_view import ProfileView, change_password, deactivate_account_view, profile_image_signature_view
 from .views.citizen_view import CitizenListView, CitizenDetailView
 from .views.employee_view import EmployeeListView, EmployeeDetailView
+from .views.lookup_view import lookup_roles_view
 
 urlpatterns = [
     path("auth/login/", LoginView.as_view(), name="login"),
@@ -37,4 +38,6 @@ urlpatterns = [
 
     path("employees/", EmployeeListView.as_view(), name="employee_list"),
     path("employees/<str:user_number>/", EmployeeDetailView.as_view(), name="employee_detail"),
+
+    path("lookup/roles/", lookup_roles_view, name="lookup_roles"),
 ]

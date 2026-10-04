@@ -14,8 +14,8 @@ class RoleManager(models.Manager):
 class Roles(models.Model):
     role_id = models.AutoField(primary_key=True)
 
-    role_code = models.CharField(max_length=50, unique=True) ##
-    role_name = models.CharField(max_length=50, unique=True)
+    role_code = models.CharField(max_length=50, unique=True, db_index=True) ##
+    role_name = models.CharField(max_length=50)
     description = models.CharField(max_length=200)
     is_protected = models.BooleanField(default=False) ##
 

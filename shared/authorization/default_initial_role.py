@@ -16,7 +16,7 @@ class AllDefaultRoleNames:
 class AllDefaultRoles:
     SYSTEM_ADMIN: RoleDefinition = RoleDefinition(
         name=AllDefaultRoleNames.SYSTEM_ADMIN,
-        code=AllDefaultRoleNames.SYSTEM_ADMIN.upper(),
+        code=AllDefaultRoleNames.SYSTEM_ADMIN.replace(" ", "_").upper(),
         description=" ".join("""Grants the permission to view, manage, and deactivate user and employee accounts, 
         role-based access control (RBAC) configurations, and view audit logs.""".split()),
         is_protected=False,
@@ -51,7 +51,7 @@ class AllDefaultRoles:
 
     SUPERVISOR: RoleDefinition = RoleDefinition(
         name=AllDefaultRoleNames.SUPERVISOR,
-        code=AllDefaultRoleNames.SUPERVISOR.upper(),
+        code=AllDefaultRoleNames.SUPERVISOR.replace(" ", "_").upper(),
         description=" ".join("""Grants the permission to view the timeline of reports, 
         system-wide analytics and metric, and audit logs.""".split()),
         is_protected=False,
@@ -73,7 +73,7 @@ class AllDefaultRoles:
 
     REPORT_OFFICER: RoleDefinition = RoleDefinition(
         name=AllDefaultRoleNames.REPORT_OFFICER,
-        code=AllDefaultRoleNames.REPORT_OFFICER.upper(),
+        code=AllDefaultRoleNames.REPORT_OFFICER.replace(" ", "_").upper(),
         description=" ".join("""Grants the permission to view, manage and process assigned reports.""".split()),
         is_protected=False,
         permissions=(
@@ -89,7 +89,7 @@ class AllDefaultRoles:
 
     CITIZEN: RoleDefinition = RoleDefinition(
         name=AllDefaultRoleNames.CITIZEN,
-        code=AllDefaultRoleNames.CITIZEN.upper(),
+        code=AllDefaultRoleNames.CITIZEN.replace(" ", "_").upper(),
         description=" ".join("""Grants the permission to view, create, and update their own reports and 
         read, manage, and deactivate their own user account.""".split()),
         is_protected=True,
