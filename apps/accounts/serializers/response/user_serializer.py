@@ -1,6 +1,18 @@
 from rest_framework import serializers
 
 
+class CreateEmployeeResponseSerializer(serializers.Serializer):
+    full_name = serializers.SerializerMethodField()
+    role = serializers.SerializerMethodField()
+    email = serializers.EmailField()
+
+    def get_full_name(self, obj) -> str:
+        return obj.get_full_name()
+
+    def get_role(self, obj) -> str:
+        return obj.role.role_name
+
+
 class UserListResponseSerializer(serializers.Serializer):
     user_number = serializers.CharField()
     full_name = serializers.SerializerMethodField()
@@ -17,7 +29,7 @@ class UserListResponseSerializer(serializers.Serializer):
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        is_staff: bool= self.context.get("is_staff")
+        is_staff: bool = self.context.get("is_staff")
 
         if not is_staff:
             data.pop("role", None)

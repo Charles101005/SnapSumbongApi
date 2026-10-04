@@ -5,7 +5,7 @@ from rest_framework import status
 
 from apps.analytics.services import AnalyticService
 from shared.results import DomainResultResponse
-from shared.authorization.decorators import require_any_perms
+from shared.authorization.decorators import require_perm, require_any_perms
 from shared.authorization import AllPermissions
 from apps.analytics.serializers.response.analytic_serializer import GetReportMetricsResponseSerializer
 
@@ -21,6 +21,30 @@ def hazard_report_metrics_view(request: Request) -> Response:
 
     return DomainResultResponse(result).respond(
         serializer_class=GetReportMetricsResponseSerializer,
+        success_status_code=status.HTTP_200_OK,
+    )
+
+@api_view(["GET"])
+@require_perm(AllPermissions.ANALYTICS.READ_EMPLOYEE_METRICS)
+def employee_metrics_view(request: Request, user_number: str) -> Response:
+    result = AnalyticService.get_user_activity_metrics(
+        user_number=user_number,
+        is_staff=True,
+    )
+
+    return DomainResultResponse(result).respond(
+        success_status_code=status.HTTP_200_OK,
+    )
+
+@api_view(["GET"])
+@require_perm(AllPermissions.ANALYTICS.READ_CITIZEN_METRICS)
+def citizen_metrics_view(request: Request, user_number: str) -> Response:
+    result = AnalyticService.get_user_activity_metrics(
+        user_number=user_number,
+        is_staff=False,
+    )
+
+    return DomainResultResponse(result).respond(
         success_status_code=status.HTTP_200_OK,
     )
 

@@ -1,7 +1,9 @@
-from django.db.models import Count
+from django.db.models import Count, Q, QuerySet
 
 from apps.accounts.models import Users
+from apps.accounts.domain_errors.user_error import UserNotFoundError
 from apps.reports.models import HazardReports
+from apps.analytics.domain_errors.analytic_error import MetricsNotApplicableToRoleError
 from shared.results import DomainResult
 from shared.authorization import AllPermissions
 from shared.authorization.service import AuthorizationService
@@ -28,3 +30,36 @@ class AnalyticService:
         }
 
         return DomainResult.success(metrics)
+
+    @staticmethod
+    def get_user_activity_metrics(
+            *,
+            user_number: str,
+            is_staff: bool,
+    ) -> DomainResult[dict[str, int]]:
+        user = Users.objects.filter(
+            user_number__iexact=user_number,
+            is_staff=is_staff
+        ).first()
+
+        if user is None:
+            return DomainResult.error(UserNotFoundError)
+
+
+        if is_staff and not AuthorizationService.has_perm(user, AllPermissions.REPORTS.UPDATE_ASSIGNED):
+            return DomainResult.error(MetricsNotApplicableToRoleError)
+
+        field = "assigned_to_id" if is_staff else "reported_by_id"
+        queryset = HazardReports.objects.filter(**{field: user.user_id})
+
+        metrics = queryset.aggregate(
+            total=Count("report_id"),
+            resolved_count=Count("report_id", filter=Q(status=HazardReports.Status.RESOLVED))
+        )
+
+        activity_metrics = {
+            f"total_reports_{'handled' if is_staff else 'submitted'}": metrics["total"],
+            "total_reports_resolved": metrics["resolved_count"] or 0,
+        }
+
+        return DomainResult.success(activity_metrics)
