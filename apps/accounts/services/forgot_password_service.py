@@ -12,7 +12,7 @@ from apps.accounts.exceptions.forgot_password_exception import ForgotPasswordReq
 class ForgotPasswordService:
     @staticmethod
     def request_reset_password(email: str) -> DomainResult[VerificationRequest|None]:
-        user: Users = Users.objects.get_by_active_email_or_none(email=email)
+        user: Users|None = Users.objects.get_by_active_email_or_none(email=email)
 
         if user is None:
             return DomainResult.success(None)

@@ -4,18 +4,18 @@ from rest_framework.request import Request
 from rest_framework import status
 
 from apps.reports.services import ReportService, HazardCategoryService
-from apps.reports.serializers.response.lookup_serializer import LookupFilterCitizenReportResponseSerializer
+from apps.reports.serializers.response.lookup_serializer import LookupReportResponseSerializer
 
 
 @api_view(["GET"])
-def lookup_filter_citizen_report_view(request: Request) -> Response:
+def lookup_report_view(request: Request) -> Response:
     lookup_filters = {
         "categories": HazardCategoryService.get_all_category().value,
         "statuses": ReportService.get_status_list().value,
         "severities": ReportService.get_severity_list().value
     }
 
-    data = LookupFilterCitizenReportResponseSerializer(
+    data = LookupReportResponseSerializer(
         lookup_filters,
         context={"user": request.user}
     ).data

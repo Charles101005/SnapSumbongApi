@@ -26,9 +26,14 @@ class AuthorizationService:
         return permission.name in cls.get_perms(user)
 
     @classmethod
-    def require_perm(cls, user: Users, permission: PermissionDefinition) -> None:
+    def require_perm(
+            cls,
+            user: Users,
+            permission: PermissionDefinition,
+            exception_message: str|None=None
+    ) -> None:
         if not cls.has_perm(user, permission):
-            raise PermissionDenied()
+            raise PermissionDenied(exception_message)
 
 
     @classmethod

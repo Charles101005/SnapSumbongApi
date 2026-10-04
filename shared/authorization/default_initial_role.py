@@ -38,6 +38,7 @@ class AllDefaultRoles:
             AllPermissions.ROLES.UPDATE_ANY,
 
             AllPermissions.ANALYTICS.READ_EMPLOYEE_METRICS,
+            AllPermissions.ANALYTICS.READ_CITIZEN_METRICS,
 
             AllPermissions.AUDITS.READ_REPORT_LOGS,
             AllPermissions.AUDITS.READ_SYSTEM_LOGS,
