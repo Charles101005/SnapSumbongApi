@@ -10,9 +10,6 @@ class ChangePasswordRequestSerializer(BasePasswordValidationSerializer):
     current_password = serializers.CharField(min_length=8)
     new_password = serializers.CharField(min_length=8)
 
-    def validate_current_password(self, value):
-        return self._validate_password_complexity(value)
-
     def validate_new_password(self, value):
         return self._validate_password_complexity(value)
 

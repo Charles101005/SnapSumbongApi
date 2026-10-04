@@ -9,8 +9,14 @@ UserNotFoundError = DomainError(
     error_code="USER_NOT_FOUND",
 )
 
-IncorrectAccountCredentials = DomainError(
+IncorrectAccountCredentialsError = DomainError(
     detail="Incorrect account credentials.",
-    status_code=status.HTTP_401_UNAUTHORIZED,
+    status_code=status.HTTP_400_BAD_REQUEST,
     error_code="INCORRECT_ACCOUNT_CREDENTIALS",
+)
+
+SelfUpdateDeniedError =  DomainError(
+    detail="You cannot update your own account role or status.",
+    status_code=status.HTTP_403_FORBIDDEN,
+    error_code="SELF_UPDATE_DENIED",
 )
