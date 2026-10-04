@@ -1,18 +1,24 @@
+import string
+import secrets
 import hmac
 import hashlib
 from typing import Any
 
-from django.contrib.auth.base_user import AbstractBaseUser
 from django.contrib.auth.hashers import make_password
-from django.db.models import Case, When, Value, IntegerField
+from django.db.models import Case, When, Value, IntegerField, Q
 from django.db import transaction
 from django.conf import settings
 
 from apps.accounts.models.role_model import Roles
 from apps.accounts.models.user_model import Users
 from apps.accounts.exceptions.role_exception import SystemCitizenRoleMissingException, RoleNotFoundException
-from apps.accounts.domain_errors.user_error import UserNotFoundError, IncorrectAccountCredentials
+from apps.accounts.domain_errors.user_error import (
+    UserNotFoundError,
+    IncorrectAccountCredentialsError,
+    SelfUpdateDeniedError
+)
 from shared.authorization.default_initial_role import AllDefaultRoles
+from shared.authorization.service import AuthorizationService
 from shared.authorization import AllPermissions
 from shared.results import DomainResult
 from apps.accounts.services import AuthService
@@ -20,6 +26,26 @@ from external.storage import StorageService, UploadIntent
 
 
 class UserService:
+    @staticmethod
+    def _generate_secure_temp_password(length: int=12) -> str:
+        lowercase = string.ascii_lowercase
+        uppercase = string.ascii_uppercase
+        digits = string.digits
+        symbols = "!@#$%&*"
+        all_chars = lowercase + uppercase + digits + symbols
+
+        required_chars = [
+            secrets.choice(lowercase),
+            secrets.choice(uppercase),
+            secrets.choice(digits),
+            secrets.choice(symbols),
+        ]
+        required_chars += [secrets.choice(all_chars) for _ in range(length - 4)]
+
+        secrets.SystemRandom().shuffle(required_chars)
+
+        return ''.join(required_chars)
+
     @staticmethod
     def create_verified_citizen(
             *,
@@ -41,7 +67,7 @@ class UserService:
             role=citizen_role,
             first_name=first_name,
             last_name=last_name,
-            middle_name=middle_name,
+            middle_name=middle_name if middle_name else None,
             has_changed_password=True,
         )
 
@@ -52,7 +78,6 @@ class UserService:
     def create_staff(
             *,
             email: str,
-            password: str,
             role_id: int,
             last_name: str,
             first_name: str,
@@ -63,15 +88,20 @@ class UserService:
         if not staff_role:
             raise RoleNotFoundException()
 
+        temp_password = UserService._generate_secure_temp_password()
+
         user: Users = Users.objects.create_user(
             email=email,
-            password=password,
+            password=temp_password,
             role=staff_role,
             first_name=first_name,
             last_name=last_name,
-            middle_name=middle_name,
+            middle_name=middle_name if middle_name else None,
             is_staff=True,
         )
+
+        #TODO: SnapSumbong - Email the password in a transaction on-commit
+        print("Password:", temp_password)
 
         return DomainResult.success(user)
 
@@ -138,7 +168,7 @@ class UserService:
 
             return DomainResult.success(None)
 
-        return DomainResult.error(IncorrectAccountCredentials)
+        return DomainResult.error(IncorrectAccountCredentialsError)
 
     @staticmethod
     def deactivate_account(user: Users) -> DomainResult[None]:
@@ -187,14 +217,42 @@ class UserService:
     def list_users(
             *,
             is_staff: bool,
+            query_filters: dict[str, Any]
     ) -> DomainResult[Users]:
         queryset = Users.objects.filter(
-            is_staff=is_staff
+            is_staff=is_staff,
         ).select_related(
             "role"
-        ).order_by("-last_active")
+        )
 
-        return DomainResult.success(queryset)
+        filter_map = {
+            "is_active": "is_active",
+            "role_id": "role__role_id",
+        }
+
+        filters = {
+            filter_map[field]: value
+            for field, value in query_filters.items()
+            if field in filter_map and value is not None
+        }
+
+        if filters:
+            queryset = queryset.filter(**filters)
+
+        search_query = query_filters.get("q")
+        if search_query:
+            search_tokens = search_query.strip().split()
+
+            for token in search_tokens:
+                queryset = queryset.filter(
+                    Q(user_number__icontains=token) |
+                    Q(email__icontains=token) |
+                    Q(last_name__icontains=token) |
+                    Q(first_name__icontains=token) |
+                    Q(middle_name__icontains=token)
+                )
+
+        return DomainResult.success(queryset.order_by("-last_active"))
 
     @staticmethod
     def get_user(
@@ -213,37 +271,77 @@ class UserService:
         return DomainResult.success(user)
 
     @staticmethod
-    def update_user(
+    def update_staff(
             *,
+            actor: Users,
             user_number: str,
-            list_staff: bool,
             fields: dict[str, Any],
     ) -> DomainResult[None]:
+        if actor.user_number.lower() == user_number.lower():
+            return DomainResult.error(SelfUpdateDeniedError)
+
         user = Users.objects.filter(
             user_number__iexact=user_number,
-            is_staff=list_staff
+            is_staff=True
         ).first()
-
-        updated_fields: list[str] = []
 
         if user is None:
             return DomainResult.error(UserNotFoundError)
 
+        updated_fields: list[str] = []
         is_active = fields.get("is_active")
-        if is_active and is_active != user.is_active:
+        role_id = fields.get("role_id")
+
+        if is_active is not None and is_active != user.is_active:
+            if is_active is True:
+                AuthorizationService.require_perm(actor, AllPermissions.EMPLOYEES.ACTIVATE_ANY)
+            else:
+                AuthorizationService.require_perm(actor, AllPermissions.EMPLOYEES.DEACTIVATE_ANY)
+
             user.is_active = is_active
             updated_fields.append("is_active")
 
-        if list_staff:
+        if role_id is not None and role_id != user.role_id:
+            AuthorizationService.require_perm(actor, AllPermissions.EMPLOYEES.ASSIGN_ROLE)
 
-            role_id = fields.get("role_id")
-            if role_id and role_id != user.role_id:
-                role = Roles.objects.get_by_id_or_none(role_id)
-                if role is None:
-                    raise RoleNotFoundException()
+            role = Roles.objects.get_by_id_or_none(role_id)
+            if role is None:
+                raise RoleNotFoundException()
 
-                user.role = role
-                updated_fields.append("role_id")
+            user.role = role
+            updated_fields.append("role_id")
+
+        if updated_fields:
+            user.save(update_fields=updated_fields)
+
+        return DomainResult.success(None)
+
+    @staticmethod
+    def update_citizen(
+            *,
+            actor: Users,
+            user_number: str,
+            fields: dict[str, Any],
+    ) -> DomainResult[None]:
+        user = Users.objects.filter(
+            user_number__iexact=user_number,
+            is_staff=False
+        ).first()
+
+        if user is None:
+            return DomainResult.error(UserNotFoundError)
+
+        updated_fields: list[str] = []
+        is_active = fields.get("is_active")
+
+        if is_active is not None and is_active != user.is_active:
+            if is_active is True:
+                AuthorizationService.require_perm(actor, AllPermissions.USERS.ACTIVATE_ANY)
+            else:
+                AuthorizationService.require_perm(actor, AllPermissions.USERS.DEACTIVATE_ANY)
+
+            user.is_active = is_active
+            updated_fields.append("is_active")
 
         if updated_fields:
             user.save(update_fields=updated_fields)
