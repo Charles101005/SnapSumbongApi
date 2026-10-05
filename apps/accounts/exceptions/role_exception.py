@@ -10,6 +10,6 @@ class SystemCitizenRoleMissingException(BaseDomainException):
 
 
 class RoleNotFoundException(BaseDomainException):
-    detail: str = 'The role id provided is invalid'
+    detail: str = 'The role code provided is invalid'
     status_code: int = status.HTTP_400_BAD_REQUEST
     error_code: str = 'ROLE_NOT_FOUND'
