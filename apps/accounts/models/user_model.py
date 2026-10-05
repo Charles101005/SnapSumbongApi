@@ -86,7 +86,7 @@ class Users(AbstractBaseUser):
     objects = UserManager()
 
     def get_full_name(self) -> str:
-        middle_name = f" {self.middle_name[0].upper()}" if self.middle_name else ""
+        middle_name = f" {self.middle_name[0].upper()}." if self.middle_name else ""
         return f"{self.last_name}, {self.first_name}" + middle_name
 
     def save(self, *args, **kwargs):

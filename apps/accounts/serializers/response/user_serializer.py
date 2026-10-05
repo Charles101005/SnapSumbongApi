@@ -2,6 +2,7 @@ from rest_framework import serializers
 
 
 class CreateEmployeeResponseSerializer(serializers.Serializer):
+    user_number = serializers.CharField()
     full_name = serializers.SerializerMethodField()
     role = serializers.SerializerMethodField()
     email = serializers.EmailField()
@@ -43,7 +44,7 @@ class UserDetailResponseSerializer(serializers.Serializer):
     middle_name = serializers.CharField(default=None)
     email = serializers.EmailField()
     role = serializers.SerializerMethodField()
-    role_code = serializers.CharField(source="role.role_code")
+    role_id = serializers.CharField()
 
     is_active = serializers.BooleanField()
 

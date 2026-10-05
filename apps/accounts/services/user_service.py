@@ -78,12 +78,12 @@ class UserService:
     def create_staff(
             *,
             email: str,
-            role_code: str,
+            role_id: int,
             last_name: str,
             first_name: str,
             middle_name: str | None = None
     ) -> DomainResult[Users]:
-        staff_role: Roles = Roles.objects.get_by_code_or_none(role_code.upper())
+        staff_role: Roles = Roles.objects.get_by_id_or_none(role_id)
 
         if not staff_role:
             raise RoleNotFoundException()
@@ -219,15 +219,11 @@ class UserService:
             is_staff: bool,
             query_filters: dict[str, Any]
     ) -> DomainResult[Users]:
-        queryset = Users.objects.filter(
-            is_staff=is_staff,
-        ).select_related(
-            "role"
-        )
+        queryset = Users.objects.filter(is_staff=is_staff)
 
         filter_map = {
             "is_active": "is_active",
-            "role_code": "role__role_code__iexact",
+            "role_id": "role_id",
         }
 
         filters = {
@@ -252,7 +248,7 @@ class UserService:
                     Q(middle_name__icontains=token)
                 )
 
-        return DomainResult.success(queryset.order_by("-last_active"))
+        return DomainResult.success(queryset.order_by("-created_at"))
 
     @staticmethod
     def get_user(
@@ -283,8 +279,6 @@ class UserService:
         user = Users.objects.filter(
             user_number__iexact=user_number,
             is_staff=True
-        ).select_related(
-            "role"
         ).first()
 
         if user is None:
@@ -292,7 +286,7 @@ class UserService:
 
         updated_fields: list[str] = []
         is_active: bool|None = fields.get("is_active")
-        role_code: str|None = fields.get("role_code")
+        role_id: int|None = fields.get("role_id")
 
         if is_active is not None and is_active != user.is_active:
             if is_active is True:
@@ -303,10 +297,10 @@ class UserService:
             user.is_active = is_active
             updated_fields.append("is_active")
 
-        if role_code is not None and role_code.upper() != user.role.role_code:
+        if role_id is not None and role_id != user.role_id:
             AuthorizationService.require_perm(actor, AllPermissions.EMPLOYEES.ASSIGN_ROLE)
 
-            role = Roles.objects.get_by_code_or_none(role_code.upper())
+            role = Roles.objects.get_by_id_or_none(role_id)
             if role is None:
                 raise RoleNotFoundException()
 

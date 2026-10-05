@@ -11,7 +11,7 @@ class CreateEmployeeRequestSerializer(serializers.Serializer):
             message="The provided email address is already in use."
         )],
     )
-    role_code = serializers.CharField()
+    role_id = serializers.IntegerField()
 
     last_name = serializers.CharField(max_length=50)
     first_name = serializers.CharField(max_length=50)
@@ -21,25 +21,25 @@ class CreateEmployeeRequestSerializer(serializers.Serializer):
 class UserListRequestSerializer(serializers.Serializer):
     q = serializers.CharField(required=False)
     is_active = serializers.BooleanField(required=False, allow_null=True, default=None)
-    role_code = serializers.CharField(required=False)
+    role_id = serializers.IntegerField(required=False)
 
     def validate(self, attrs):
         is_staff: bool = self.context.get("is_staff")
 
         if not is_staff:
-            attrs.pop("role_code", None)
+            attrs.pop("role_id", None)
 
         return attrs
 
 
 class UserUpdateRequestSerializer(serializers.Serializer):
     is_active = serializers.BooleanField()
-    role_code = serializers.CharField()
+    role_id = serializers.IntegerField()
 
     def validate(self, attrs):
         is_staff: bool = self.context.get("is_staff")
 
         if not is_staff:
-            attrs.pop("role_code", None)
+            attrs.pop("role_id", None)
 
         return attrs
