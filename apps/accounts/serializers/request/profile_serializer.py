@@ -13,6 +13,17 @@ class ChangePasswordRequestSerializer(BasePasswordValidationSerializer):
     def validate_new_password(self, value):
         return self._validate_password_complexity(value)
 
+    def validate(self, attrs):
+        current_password = attrs.get("current_password")
+        new_password = attrs.get("new_password")
+
+        if current_password and new_password and new_password == current_password:
+            raise serializers.ValidationError({
+                "new_password": "Your new password cannot be the same as your current password."
+            })
+
+        return attrs
+
 
 class UpdateProfileRequestSerializer(serializers.Serializer):
     last_name = serializers.CharField(max_length=50)

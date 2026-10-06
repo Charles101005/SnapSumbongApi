@@ -44,7 +44,7 @@ class UserDetailResponseSerializer(serializers.Serializer):
     middle_name = serializers.CharField(default=None)
     email = serializers.EmailField()
     role = serializers.SerializerMethodField()
-    role_id = serializers.CharField()
+    role_id = serializers.IntegerField()
 
     is_active = serializers.BooleanField()
 

@@ -219,7 +219,11 @@ class UserService:
             is_staff: bool,
             query_filters: dict[str, Any]
     ) -> DomainResult[Users]:
-        queryset = Users.objects.filter(is_staff=is_staff)
+        queryset = Users.objects.filter(
+            is_staff=is_staff
+        ).select_related(
+            "role"
+        )
 
         filter_map = {
             "is_active": "is_active",
