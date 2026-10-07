@@ -3,6 +3,7 @@ from rest_framework.validators import UniqueValidator
 
 from apps.accounts.models import Users
 from apps.accounts.serializers.base_serializer import BasePasswordValidationSerializer
+from apps.accounts.validators.serializer_validator import ten_digit_psgc_code_validator
 from external.storage import StorageService, UploadIntent
 
 
@@ -38,6 +39,15 @@ class UpdateProfileRequestSerializer(serializers.Serializer):
     contact_number = serializers.CharField(min_length=11, max_length=11)
     is_notified = serializers.BooleanField()
     profile_picture = serializers.URLField(max_length=500)
+
+    gender = serializers.ChoiceField(choices=Users.GenderChoices.choices)
+    birth_date = serializers.DateField()
+    street_address = serializers.CharField(max_length=255)
+
+    region_code = serializers.CharField(validators=[ten_digit_psgc_code_validator])
+    province_code = serializers.CharField(validators=[ten_digit_psgc_code_validator])
+    city_code = serializers.CharField(validators=[ten_digit_psgc_code_validator])
+    barangay_code = serializers.CharField(validators=[ten_digit_psgc_code_validator])
 
     def validate_profile_picture(self, value):
         expected_base_url = StorageService.get_expected_response_base_url()

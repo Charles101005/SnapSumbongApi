@@ -57,6 +57,11 @@ class UserManager(BaseUserManager):
 
 
 class Users(AbstractBaseUser):
+    class GenderChoices(models.TextChoices):
+        MALE = "M", "Male"
+        FEMALE = "F", "Female"
+        OTHER = "O", "Other"
+
     user_id = models.AutoField(primary_key=True)
     user_number = models.CharField(max_length=20, unique=True, editable=False, db_index=True)
 
@@ -67,12 +72,20 @@ class Users(AbstractBaseUser):
     email = models.EmailField(unique=True)
     contact_number = models.CharField(max_length=11, blank=True, null=True)
     profile_picture = models.URLField(max_length=500, blank=True, null=True)
+    birth_date = models.DateField(null=True)
+    gender = models.CharField(max_length=1, choices=GenderChoices.choices, null=True)
+    street_address = models.CharField(max_length=255, null=True)
+
+    region_code = models.CharField(max_length=10, null=True)
+    province_code = models.CharField(max_length=10, null=True)
+    city_code = models.CharField(max_length=10, null=True)
+    barangay_code = models.CharField(max_length=10, null=True)
 
     is_notified = models.BooleanField(default=True)
     is_active = models.BooleanField(default=True) ##
     is_staff = models.BooleanField(default=False) ##
 
-    has_changed_password = models.BooleanField(default=False)
+    must_change_password = models.BooleanField(default=False)
 
     role = models.ForeignKey(Roles, on_delete=models.PROTECT)
 
@@ -84,6 +97,11 @@ class Users(AbstractBaseUser):
     USERNAME_FIELD = 'email'
 
     objects = UserManager()
+
+    @property
+    def full_name(self) -> str:
+        middle_name = f" {self.middle_name[0].upper()}." if self.middle_name else ""
+        return f"{self.last_name}, {self.first_name}" + middle_name
 
     def get_full_name(self) -> str:
         middle_name = f" {self.middle_name[0].upper()}." if self.middle_name else ""

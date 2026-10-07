@@ -57,7 +57,6 @@ class Command(BaseCommand):
             role=admin_role,
             first_name=self.first_name,
             last_name=self.last_name,
-            has_changed_password=True,
             is_staff=True,
         )
 

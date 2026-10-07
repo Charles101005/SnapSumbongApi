@@ -68,7 +68,6 @@ class UserService:
             first_name=first_name,
             last_name=last_name,
             middle_name=middle_name if middle_name else None,
-            has_changed_password=True,
         )
 
         return DomainResult.success(user)
@@ -98,6 +97,7 @@ class UserService:
             last_name=last_name,
             middle_name=middle_name if middle_name else None,
             is_staff=True,
+            must_change_password=True,
         )
 
         #TODO: SnapSumbong - Email the password in a transaction on-commit

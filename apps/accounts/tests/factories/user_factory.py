@@ -23,5 +23,3 @@ class UserFactory(factory.django.DjangoModelFactory):
 
     email = factory.Sequence(lambda n: f'email{n}@email.com')
     password = factory.LazyFunction(lambda: make_password(TEST_PASSWORD))
-
-    has_changed_password = True

@@ -10,6 +10,15 @@ class GetProfileResponseSerializer(serializers.Serializer):
     is_notified = serializers.BooleanField()
     profile_picture = serializers.URLField(default=None)
 
+    gender = serializers.CharField(source="get_gender_display", default=None)
+    birth_date = serializers.DateField(default=None)
+    street_address = serializers.CharField(max_length=255, default=None)
+
+    region_code = serializers.CharField(default=None)
+    province_code = serializers.CharField(default=None)
+    city_code = serializers.CharField(default=None)
+    barangay_code = serializers.CharField(default=None)
+
 
 class GetProfileImageSignatureResponseSerializer(serializers.Serializer):
     api_key = serializers.CharField()
