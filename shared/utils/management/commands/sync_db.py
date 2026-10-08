@@ -14,7 +14,7 @@ class Command(BaseCommand):
         ]
 
         for command in seed_commands:
-            self.stdout.write(self.style.NOTICE(f"Running {command}..."))
+            self.stdout.write(self.style.NOTICE(f"\nRunning {command}..."))
             call_command(command)
 
         self.stdout.write(self.style.SUCCESS("Synced database successfully."))

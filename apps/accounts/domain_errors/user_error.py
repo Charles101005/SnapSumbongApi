@@ -17,6 +17,6 @@ IncorrectAccountCredentialsError = DomainError(
 
 SelfUpdateDeniedError =  DomainError(
     detail="You cannot update your own account role or status.",
-    status_code=status.HTTP_403_FORBIDDEN,
+    status_code=status.HTTP_409_CONFLICT,
     error_code="SELF_UPDATE_DENIED",
 )

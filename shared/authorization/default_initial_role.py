@@ -19,7 +19,7 @@ class AllDefaultRoles:
         code=AllDefaultRoleNames.SYSTEM_ADMIN.replace(" ", "_").upper(),
         description=" ".join("""Grants the permission to view, manage, and deactivate user and employee accounts, 
         role-based access control (RBAC) configurations, and view audit logs.""".split()),
-        is_protected=False,
+        is_protected=True,
         permissions=(
             AllPermissions.USERS.READ_OWN,
             AllPermissions.USERS.UPDATE_OWN,
@@ -29,6 +29,7 @@ class AllDefaultRoles:
 
             AllPermissions.EMPLOYEES.CREATE,
             AllPermissions.EMPLOYEES.READ_ALL,
+            AllPermissions.EMPLOYEES.UPDATE_ANY,
             AllPermissions.EMPLOYEES.ASSIGN_ROLE,
             AllPermissions.EMPLOYEES.DEACTIVATE_ANY,
             AllPermissions.EMPLOYEES.ACTIVATE_ANY,
@@ -61,9 +62,9 @@ class AllDefaultRoles:
             AllPermissions.USERS.READ_OWN,
             AllPermissions.USERS.UPDATE_OWN,
 
-            AllPermissions.EMPLOYEES.READ_ALL,
+            AllPermissions.EMPLOYEES.READ_HANDLERS,
 
-            AllPermissions.ANALYTICS.READ_EMPLOYEE_PERFORMANCE,
+            AllPermissions.ANALYTICS.READ_HANDLER_PERFORMANCE,
             AllPermissions.ANALYTICS.READ_ALL_METRICS,
             AllPermissions.ANALYTICS.READ_DASHBOARD,
 

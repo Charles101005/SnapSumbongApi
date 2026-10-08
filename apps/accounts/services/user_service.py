@@ -3,6 +3,7 @@ import secrets
 import hmac
 import hashlib
 from typing import Any
+from datetime import date
 
 from django.contrib.auth.hashers import make_password
 from django.db.models import Case, When, Value, IntegerField, Q
@@ -80,7 +81,15 @@ class UserService:
             role_id: int,
             last_name: str,
             first_name: str,
-            middle_name: str | None = None
+            middle_name: str | None = None,
+            contact_number: str,
+            birth_date: date,
+            gender: str,
+            street_address: str,
+            region_code: str,
+            province_code: str,
+            city_code: str,
+            barangay_code: str
     ) -> DomainResult[Users]:
         staff_role: Roles = Roles.objects.get_by_id_or_none(role_id)
 
@@ -98,6 +107,14 @@ class UserService:
             middle_name=middle_name if middle_name else None,
             is_staff=True,
             must_change_password=True,
+            contact_number=contact_number,
+            birth_date=birth_date,
+            gender=gender,
+            street_address=street_address,
+            region_code=region_code,
+            province_code=province_code,
+            city_code=city_code,
+            barangay_code=barangay_code
         )
 
         #TODO: SnapSumbong - Email the password in a transaction on-commit
@@ -291,6 +308,33 @@ class UserService:
         updated_fields: list[str] = []
         is_active: bool|None = fields.get("is_active")
         role_id: int|None = fields.get("role_id")
+
+        info_fields: list[str] = [
+            "email",
+            "last_name",
+            "first_name",
+            "middle_name",
+            "contact_number",
+            "birth_date",
+            "gender",
+            "street_address",
+            "region_code",
+            "province_code",
+            "city_code",
+            "barangay_code",
+        ]
+
+        updated_info_fields: dict[str, Any] = {
+            field: fields.get(field)
+            for field in info_fields
+            if field in fields.keys()
+        }
+
+        if updated_info_fields:
+            AuthorizationService.require_perm(actor, AllPermissions.EMPLOYEES.UPDATE_ANY)
+            for field, value in updated_info_fields.items():
+                setattr(user, field, value)
+                updated_fields.append(field)
 
         if is_active is not None and is_active != user.is_active:
             if is_active is True:

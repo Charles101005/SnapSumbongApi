@@ -19,6 +19,18 @@ class EmployeePermissions:
         module=_module,
     )
 
+    UPDATE_ANY: PermissionDefinition = PermissionDefinition(
+        name='employee:update_any',
+        description='Allows the role to UPDATE any employee',
+        module=_module,
+    )
+
+    READ_HANDLERS: PermissionDefinition = PermissionDefinition(
+        name='employee:read_handlers',
+        description='Allows the role to READ all employees that handle hazard reports',
+        module=_module,
+    )
+
     ASSIGN_ROLE: PermissionDefinition = PermissionDefinition(
         name='employee:assign_role',
         description='Allows the role to ASSIGN roles to employees',

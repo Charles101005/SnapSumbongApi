@@ -6,7 +6,14 @@ class CreateEmployeeResponseSerializer(serializers.Serializer):
     full_name = serializers.CharField(source='get_full_name')
     role = serializers.CharField(source='role.role_name')
     email = serializers.EmailField()
-
+    contact_number = serializers.CharField(min_length=11, max_length=11)
+    birth_date = serializers.DateField()
+    gender = serializers.CharField(source='get_gender_display')
+    street_address = serializers.CharField(max_length=255)
+    region_code = serializers.CharField()
+    province_code = serializers.CharField()
+    city_code = serializers.CharField()
+    barangay_code = serializers.CharField()
 
 class UserListResponseSerializer(serializers.Serializer):
     user_number = serializers.CharField()

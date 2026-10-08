@@ -54,6 +54,14 @@ class EmployeeListView(APIView):
             last_name=validated_data["last_name"],
             first_name=validated_data["first_name"],
             middle_name=validated_data["middle_name"],
+            contact_number=validated_data["contact_number"],
+            birth_date=validated_data["birth_date"],
+            gender=validated_data["gender"],
+            street_address=validated_data["street_address"],
+            region_code=validated_data["region_code"],
+            province_code=validated_data["province_code"],
+            city_code=validated_data["city_code"],
+            barangay_code=validated_data["barangay_code"],
         )
 
         return DomainResultResponse(result).respond(
@@ -76,6 +84,7 @@ class EmployeeDetailView(APIView):
         )
 
     @require_any_perms(
+        AllPermissions.EMPLOYEES.UPDATE_ANY,
         AllPermissions.EMPLOYEES.ASSIGN_ROLE,
         AllPermissions.EMPLOYEES.ACTIVATE_ANY,
         AllPermissions.EMPLOYEES.DEACTIVATE_ANY,

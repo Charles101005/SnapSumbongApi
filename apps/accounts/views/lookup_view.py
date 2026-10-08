@@ -3,6 +3,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
 
+from shared import results
 from shared.results import DomainResultResponse
 from apps.accounts.services import RoleService
 from shared.authorization import AllPermissions
@@ -17,10 +18,22 @@ from apps.accounts.serializers.response.lookup_serializer import LookupRolesResp
     AllPermissions.EMPLOYEES.ASSIGN_ROLE,
 )
 def lookup_roles_view(request: Request) -> Response:
-    result = RoleService.list_roles()
+    result = RoleService.list_roles_for_lookup()
 
     return DomainResultResponse(result).respond(
         serializer_class=LookupRolesResponseSerializer,
         success_status_code=status.HTTP_200_OK,
         serializer_is_many=True,
+    )
+
+@api_view(["GET"])
+@require_any_perms(
+    AllPermissions.ROLES.CREATE,
+    AllPermissions.ROLES.UPDATE_ANY
+)
+def lookup_permissions_view(request: Request) -> Response:
+    result = RoleService.list_permissions_grouped_by_module()
+
+    return DomainResultResponse(result).respond(
+        success_status_code=status.HTTP_200_OK,
     )

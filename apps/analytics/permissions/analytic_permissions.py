@@ -31,9 +31,9 @@ class AnalyticPermissions:
         module=_module,
     )
 
-    READ_EMPLOYEE_PERFORMANCE: PermissionDefinition = PermissionDefinition(
-        name='analytic:read_employee_performance',
-        description='Allows the role to READ performance metrics of employees',
+    READ_HANDLER_PERFORMANCE: PermissionDefinition = PermissionDefinition(
+        name='analytic:read_handler_performance',
+        description='Allows the role to READ performance metrics of employees that handle hazard reports',
         module=_module,
     )
 
