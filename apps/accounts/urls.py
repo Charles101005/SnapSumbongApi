@@ -12,7 +12,7 @@ from .views.profile_view import ProfileView, change_password, deactivate_account
 from .views.citizen_view import CitizenListView, CitizenDetailView
 from .views.employee_view import EmployeeListView, EmployeeDetailView
 from .views.lookup_view import lookup_roles_view, lookup_permissions_view
-from .views.role_view import RoleListView, RoleDetailView
+from .views.role_view import RoleListView, RoleDetailView, duplicate_role_view
 
 urlpatterns = [
     path("auth/login/", LoginView.as_view(), name="login"),
@@ -44,5 +44,6 @@ urlpatterns = [
     path("lookup/permissions/", lookup_permissions_view, name="lookup_permissions"),
 
     path("roles/", RoleListView.as_view(), name="role_list"),
+    path("roles/duplicate/<int:role_id>/", duplicate_role_view, name="duplicate_role"),
     path("roles/<int:role_id>/", RoleDetailView.as_view(), name="role_detail"),
 ]

@@ -327,7 +327,7 @@ class UserService:
         updated_info_fields: dict[str, Any] = {
             field: fields.get(field)
             for field in info_fields
-            if field in fields.keys()
+            if field in fields and fields[field] != getattr(user, field)
         }
 
         if updated_info_fields:

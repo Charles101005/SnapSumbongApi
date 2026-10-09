@@ -26,3 +26,7 @@ class Roles(models.Model):
 
 
     objects = RoleManager()
+
+    @staticmethod
+    def format_role_code(role_name: str) -> str:
+        return "_".join(role_name.upper().split())

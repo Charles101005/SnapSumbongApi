@@ -65,21 +65,33 @@ class UserUpdateRequestSerializer(serializers.Serializer):
     is_active = serializers.BooleanField()
 
     def validate(self, attrs):
+        BASE_FIELDS = {
+            "is_active"
+        }
+
+        STAFF_ONLY_FIELDS: set[str] = {
+            "email",
+            "role_id",
+            "last_name",
+            "first_name",
+            "middle_name",
+            "contact_number",
+            "birth_date",
+            "gender",
+            "street_address",
+            "region_code",
+            "province_code",
+            "city_code",
+            "barangay_code"
+        }
+
         is_staff: bool = self.context.get("is_staff")
 
-        if not is_staff:
-            attrs.pop("email", None)
-            attrs.pop("role_id", None)
-            attrs.pop("last_name", None)
-            attrs.pop("first_name", None)
-            attrs.pop("middle_name", None)
-            attrs.pop("contact_number", None)
-            attrs.pop("birth_date", None)
-            attrs.pop("gender", None)
-            attrs.pop("street_address", None)
-            attrs.pop("region_code", None)
-            attrs.pop("province_code", None)
-            attrs.pop("city_code", None)
-            attrs.pop("barangay_code", None)
+        if is_staff:
+            allowed_fields = BASE_FIELDS | STAFF_ONLY_FIELDS
+        else:
+            allowed_fields = BASE_FIELDS
+
+        attrs = {key: value for key, value in attrs.items() if key in allowed_fields}
 
         return attrs
