@@ -19,3 +19,9 @@ class SystemProtectedRoleModificationDeniedException(BaseDomainException):
     detail: str = 'The provided role is a system protected role and cannot be modified.'
     status_code: int = status.HTTP_400_BAD_REQUEST
     error_code: str = 'SYSTEM_PROTECTED_ROLE_MODIFICATION_DENIED'
+
+
+class DeactivatedRoleModificationDeniedException(BaseDomainException):
+    detail: str = 'The provided role is deactivated and cannot be modified.'
+    status_code: int = status.HTTP_400_BAD_REQUEST
+    error_code: str = 'DEACTIVATED_ROLE_MODIFICATION_DENIED'

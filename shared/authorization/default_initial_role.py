@@ -37,6 +37,7 @@ class AllDefaultRoles:
             AllPermissions.ROLES.CREATE,
             AllPermissions.ROLES.READ_ALL,
             AllPermissions.ROLES.UPDATE_ANY,
+            AllPermissions.ROLES.DEACTIVATE_ANY,
 
             AllPermissions.ANALYTICS.READ_EMPLOYEE_METRICS,
             AllPermissions.ANALYTICS.READ_CITIZEN_METRICS,

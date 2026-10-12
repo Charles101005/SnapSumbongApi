@@ -14,3 +14,9 @@ PermissionNotFoundError = DomainError(
     status_code=status.HTTP_404_NOT_FOUND,
     error_code="PERMISSION_NOT_FOUND",
 )
+
+RoleInUseError = DomainError(
+    detail="Cannot deactivate this role. There are users currently assigned to it. Please reassign all users",
+    status_code=status.HTTP_400_BAD_REQUEST,
+    error_code="ROLE_IN_USE",
+)

@@ -18,6 +18,7 @@ class Roles(models.Model):
     role_name = models.CharField(max_length=50)
     description = models.CharField(max_length=200)
     is_protected = models.BooleanField(default=False) ##
+    is_active = models.BooleanField(default=True)
 
     permissions = models.ManyToManyField(Permissions, related_name='roles')
 

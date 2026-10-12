@@ -6,12 +6,14 @@ class ListRolesResponseSerializer(serializers.Serializer):
     role_name = serializers.CharField()
     description = serializers.CharField()
     is_protected = serializers.BooleanField()
+    is_active = serializers.BooleanField()
 
 class DetailRoleResponseSerializer(serializers.Serializer):
     role_id = serializers.IntegerField()
     role_name = serializers.CharField()
     description = serializers.CharField()
     is_protected = serializers.BooleanField()
+    is_active = serializers.BooleanField()
     permissions = serializers.SerializerMethodField()
     created_at = serializers.DateTimeField()
     updated_at = serializers.DateTimeField()

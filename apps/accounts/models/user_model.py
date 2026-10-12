@@ -87,7 +87,7 @@ class Users(AbstractBaseUser):
 
     must_change_password = models.BooleanField(default=False)
 
-    role = models.ForeignKey(Roles, on_delete=models.PROTECT)
+    role = models.ForeignKey(Roles, on_delete=models.PROTECT, related_name='users')
 
     last_active = models.DateTimeField(null=True)
     created_at = models.DateTimeField(auto_now_add=True)

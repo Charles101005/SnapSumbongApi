@@ -8,3 +8,8 @@ class CreateUpdateRoleRequestSerializer(serializers.Serializer):
         child=serializers.CharField(),
         min_length=1,
     )
+
+
+class ListRolesRequestSerializer(serializers.Serializer):
+    q = serializers.CharField(required=False)
+    is_active = serializers.BooleanField(required=False, allow_null=True, default=None)

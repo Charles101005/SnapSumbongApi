@@ -3,20 +3,22 @@ from typing import Any
 from collections import defaultdict
 
 from django.db import transaction
+from django.db.models import Q
 
 from apps.accounts.models import Roles, Permissions
 from shared.results import DomainResult
 from apps.accounts.exceptions.role_exception import (
     RoleNotFoundException,
-    SystemProtectedRoleModificationDeniedException
+    SystemProtectedRoleModificationDeniedException,
+    DeactivatedRoleModificationDeniedException
 )
-from apps.accounts.domain_errors.role_error import RoleAlreadyExistError, PermissionNotFoundError
+from apps.accounts.domain_errors.role_error import RoleAlreadyExistError, PermissionNotFoundError, RoleInUseError
 
 
 class RoleService:
     @staticmethod
     def list_roles_for_lookup() -> DomainResult[Roles]:
-        roles = Roles.objects.values("role_id", "role_name")
+        roles = Roles.objects.filter(is_active=True).values("role_id", "role_name")
         return DomainResult.success(roles)
 
     @staticmethod
@@ -35,9 +37,31 @@ class RoleService:
         return DomainResult.success(grouped_permissions)
 
     @staticmethod
-    def list_roles() -> DomainResult[Roles]:
+    def list_roles(query_filters: dict[str, Any]) -> DomainResult[Roles]:
         queryset = Roles.objects.all().prefetch_related("permissions")
-        return DomainResult.success(queryset.order_by("role_id"))
+
+        filter_map = {
+            "is_active": "is_active",
+        }
+
+        filters = {
+            filter_map[field]: value
+            for field, value in query_filters.items()
+            if field in filter_map and value is not None
+        }
+
+        if filters:
+            queryset = queryset.filter(**filters)
+
+        search_query: str|None = query_filters.get("q")
+        if search_query:
+            search_query = search_query.strip()
+
+            queryset = queryset.filter(
+                Q(role_name__icontains=search_query)
+            )
+
+        return DomainResult.success(queryset.order_by("-created_at"))
 
     @staticmethod
     def get_role(role_id: int) -> DomainResult[Roles]:
@@ -84,6 +108,9 @@ class RoleService:
         if role.is_protected:
             raise SystemProtectedRoleModificationDeniedException()
 
+        if not role.is_active:
+            raise DeactivatedRoleModificationDeniedException()
+
         updated_fields = []
 
         role_name: str|None = fields.get("role_name")
@@ -107,6 +134,7 @@ class RoleService:
             updated_fields.append("description")
 
         if updated_fields:
+            updated_fields.append("updated_at")
             role.save(update_fields=updated_fields)
 
         if permission_names is not None:
@@ -116,6 +144,9 @@ class RoleService:
                 return DomainResult.error(PermissionNotFoundError)
 
             role.permissions.set(valid_permissions)
+
+            if not updated_fields:
+                role.save(update_fields=["updated_at"])
 
         return DomainResult.success(None)
 
@@ -152,3 +183,24 @@ class RoleService:
         new_role.permissions.set(source_permissions)
 
         return DomainResult.success(new_role)
+
+    @staticmethod
+    def deactivate_role(role_id: int) -> DomainResult[None]:
+        role = Roles.objects.get_by_id_or_none(role_id)
+
+        if not role:
+            raise RoleNotFoundException()
+
+        if role.is_protected:
+            raise SystemProtectedRoleModificationDeniedException()
+
+        if not role.is_active:
+            return DomainResult.success(None)
+
+        if role.users.exists():
+            return DomainResult.error(RoleInUseError)
+
+        role.is_active = False
+        role.save(update_fields=["is_active", "updated_at"])
+
+        return DomainResult.success(None)

@@ -24,3 +24,9 @@ class RolePermissions:
         description='Allows the role to UPDATE any role',
         module=_module,
     )
+
+    DEACTIVATE_ANY: PermissionDefinition = PermissionDefinition(
+        name='role:deactivate_any',
+        description='Allows the role to DEACTIVATE any role',
+        module=_module,
+    )
