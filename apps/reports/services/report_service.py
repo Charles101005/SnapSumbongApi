@@ -27,6 +27,7 @@ from apps.reports.domain_errors.report_error import (
     ResolutionImageRequiredError,
     MissingDuringPhotoError,
     MissingAfterPhotoError,
+    SelfValidationDeniedError,
 )
 from apps.accounts.services import UserService
 from apps.audits.services import AuditLogService
@@ -271,7 +272,9 @@ class ReportService:
             report_number__iexact=report_number
         ).select_related(
             "reported_by",
-            "category"
+            "category",
+            "assigned_to",
+            "validated_by",
         ).prefetch_related(
             "images",
             "audit_logs",
@@ -344,6 +347,19 @@ class ReportService:
 
                 if ReportImages.PhotoType.AFTER not in photo_types:
                     return DomainResult.error(MissingAfterPhotoError)
+
+                # DO 47 s.2024 §2: the validator of completed rectification
+                # works must not be the assigned handler (transparency rule).
+                # ALLOW_SELF_VALIDATION exists only for single-staff demos.
+                if (
+                    not settings.ALLOW_SELF_VALIDATION
+                    and report.assigned_to_id
+                    and user.user_id == report.assigned_to_id
+                ):
+                    return DomainResult.error(SelfValidationDeniedError)
+
+                report.validated_by = user
+                updated_fields.append("validated_by")
 
                 report.resolved_at = timezone.now()
                 updated_fields.append("resolved_at")

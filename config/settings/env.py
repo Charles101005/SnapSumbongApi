@@ -29,6 +29,11 @@ DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG: bool = os.getenv("DEBUG", "False") == "True"
 
+# DO 47 s.2024 §2 transparency rule: the staff member who validates completed
+# rectification works must not be the assigned handler. Set True only for
+# single-staff local demos so one account can still resolve reports.
+ALLOW_SELF_VALIDATION: bool = os.getenv("ALLOW_SELF_VALIDATION", "False").upper() == "TRUE"
+
 SECURE_SSL_REDIRECT: bool = os.environ["SECURE_SSL_REDIRECT"].upper() == "TRUE"
 
 ALLOWED_HOSTS: list[str] = os.environ["ALLOWED_HOSTS"].split(",")

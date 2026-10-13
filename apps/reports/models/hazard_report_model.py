@@ -97,6 +97,17 @@ class HazardReports(models.Model):
         related_name="assigned_hazard_reports",
     )
 
+    # DO 47 s.2024 §2: the staff member who validated the completed
+    # rectification works. Must differ from assigned_to unless the
+    # ALLOW_SELF_VALIDATION demo flag is enabled.
+    validated_by = models.ForeignKey(
+        "apps_accounts.Users",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="validated_hazard_reports",
+    )
+
     category = models.ForeignKey(HazardCategories, on_delete=models.PROTECT, related_name="hazard_reports")
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.NEW, db_index=True)
     severity = models.CharField(max_length=2, choices=Severity.choices, null=True, blank=True, db_index=True)

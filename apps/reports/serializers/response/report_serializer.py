@@ -1,11 +1,23 @@
 from typing import Any
 from decimal import Decimal
 
+from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from rest_framework import serializers
 
 from apps.reports.models import HazardReports, ReportImages
 from apps.audits.models import AuditLogs
+
+
+def _staff_display_name(user) -> dict[str, str] | None:
+    if not user:
+        return None
+
+    middle_name = f" {user.middle_name[0].upper()}." if user.middle_name else ""
+    return {
+        "email": user.email,
+        "name": f"{user.last_name}, {user.first_name}{middle_name}",
+    }
 
 
 class _ImageSignatureSerializer(serializers.Serializer):
@@ -99,6 +111,9 @@ class GetReportDetailResponseSerializer(serializers.Serializer):
 
     #staff only
     reported_by = serializers.SerializerMethodField()
+    assigned_to = serializers.SerializerMethodField()
+    validated_by = serializers.SerializerMethodField()
+    self_validation_allowed = serializers.SerializerMethodField()
     category = serializers.SerializerMethodField()
     severity = serializers.CharField()
     created_at = serializers.DateTimeField()
@@ -116,6 +131,15 @@ class GetReportDetailResponseSerializer(serializers.Serializer):
             return full_name
 
         return "<Anonymous>"
+
+    def get_assigned_to(self, value) -> dict | None:
+        return _staff_display_name(value.assigned_to)
+
+    def get_validated_by(self, value) -> dict | None:
+        return _staff_display_name(value.validated_by)
+
+    def get_self_validation_allowed(self, value) -> bool:
+        return settings.ALLOW_SELF_VALIDATION
 
     def get_category(self, value) -> str:
         return value.category.hazard_name
@@ -169,6 +193,9 @@ class GetReportDetailResponseSerializer(serializers.Serializer):
 
         else:
             data.pop("reported_by", None)
+            data.pop("assigned_to", None)
+            data.pop("validated_by", None)
+            data.pop("self_validation_allowed", None)
             data.pop("category", None)
             data.pop("severity", None)
             data.pop("created_at", None)

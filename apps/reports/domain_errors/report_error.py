@@ -39,6 +39,12 @@ MissingAfterPhotoError = DomainError(
     error_code="MISSING_AFTER_PHOTO",
 )
 
+SelfValidationDeniedError = DomainError(
+    detail="DO 47 requires the resolution to be validated by a staff member other than the assigned handler.",
+    status_code=status.HTTP_403_FORBIDDEN,
+    error_code="SELF_VALIDATION_DENIED",
+)
+
 MandatoryRemarksStatusError = DomainError(
     detail="A detailed remark is required when moving a report to this status.",
     status_code=status.HTTP_400_BAD_REQUEST,
