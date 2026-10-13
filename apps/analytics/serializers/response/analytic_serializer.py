@@ -14,3 +14,19 @@ class _ReportMetricsByStatus(serializers.Serializer):
 class GetReportMetricsResponseSerializer(serializers.Serializer):
     total_count = serializers.IntegerField()
     count_by_status = _ReportMetricsByStatus()
+
+
+class HandlerComplianceSerializer(serializers.Serializer):
+    user_number = serializers.CharField()
+    handler_name = serializers.CharField()
+    resolved_count = serializers.IntegerField()
+    sla_on_time_pct = serializers.FloatField(allow_null=True)
+    photolog_pct = serializers.FloatField(allow_null=True)
+    validation_pct = serializers.FloatField(allow_null=True)
+    score = serializers.FloatField(allow_null=True)
+    rating = serializers.CharField()
+
+
+class GetHandlerComplianceResponseSerializer(serializers.Serializer):
+    weights = serializers.DictField(child=serializers.FloatField())
+    handlers = HandlerComplianceSerializer(many=True)

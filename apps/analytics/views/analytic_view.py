@@ -7,7 +7,10 @@ from apps.analytics.services import AnalyticService
 from shared.results import DomainResultResponse
 from shared.authorization.decorators import require_perm, require_any_perms
 from shared.authorization import AllPermissions
-from apps.analytics.serializers.response.analytic_serializer import GetReportMetricsResponseSerializer
+from apps.analytics.serializers.response.analytic_serializer import (
+    GetReportMetricsResponseSerializer,
+    GetHandlerComplianceResponseSerializer,
+)
 
 
 @api_view(["GET"])
@@ -45,6 +48,17 @@ def citizen_metrics_view(request: Request, user_number: str) -> Response:
     )
 
     return DomainResultResponse(result).respond(
+        success_status_code=status.HTTP_200_OK,
+    )
+
+
+@api_view(["GET"])
+@require_perm(AllPermissions.ANALYTICS.READ_HANDLER_PERFORMANCE)
+def handler_compliance_view(request: Request) -> Response:
+    result = AnalyticService.get_handler_compliance_metrics()
+
+    return DomainResultResponse(result).respond(
+        serializer_class=GetHandlerComplianceResponseSerializer,
         success_status_code=status.HTTP_200_OK,
     )
 
