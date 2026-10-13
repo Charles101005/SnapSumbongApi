@@ -119,7 +119,7 @@ class ReportDetailView(APIView):
             new_status_str=validated_data.get("status"),
             new_severity_str=validated_data.get("severity"),
             remarks=validated_data.get("remarks"),
-            resolution_image_urls=validated_data.get("resolution_image_urls")
+            resolution_images=validated_data.get("resolution_images")
         )
 
         return DomainResultResponse(result).respond(

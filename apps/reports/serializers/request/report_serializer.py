@@ -79,22 +79,29 @@ class GetReportListRequestSerializer(serializers.Serializer):
         return attrs
 
 
+class ResolutionImageItemSerializer(serializers.Serializer):
+    # DO 47 s.2024 Appendix A-8: photolog entries carry a phase — DURING
+    # (works in progress) or AFTER (completed rectification). BEFORE photos
+    # come from the citizen's original submission and cannot be sent here.
+    image_url = serializers.URLField(max_length=500)
+    photo_type = serializers.ChoiceField(choices=["DURING", "AFTER"])
+
+    def validate_image_url(self, value):
+        expected_base_url = StorageService.get_expected_response_base_url()
+        expected_folder = f"/{UploadIntent.REPORT_RESOLUTION.value}/"
+
+        if not value.startswith(expected_base_url) or expected_folder not in value:
+            raise serializers.ValidationError("Invalid URL")
+
+        return value
+
+
 class UpdateReportRequestSerializer(serializers.Serializer):
     severity = serializers.CharField()
     status = serializers.CharField()
     remarks = serializers.CharField()
-    resolution_image_urls = serializers.ListField(
-        child=serializers.URLField(max_length=500),
+    resolution_images = ResolutionImageItemSerializer(
+        many=True,
         min_length=1,
-        max_length=settings.STORAGE_CONFIG['MAX_SIGNATURE_COUNT']
+        max_length=settings.STORAGE_CONFIG['MAX_SIGNATURE_COUNT'],
     )
-
-    def validate_resolution_image_urls(self, value):
-        expected_base_url = StorageService.get_expected_response_base_url()
-        expected_folder = f"/{UploadIntent.REPORT_RESOLUTION.value}/"
-
-        for url in value:
-            if not url.startswith(expected_base_url) or expected_folder not in url:
-                raise serializers.ValidationError("Invalid URL")
-
-        return value

@@ -11,7 +11,7 @@ from django.conf import settings
 from apps.accounts.models import Users
 from shared.results import DomainResult
 from external.storage import StorageService, UploadIntent
-from apps.reports.models import HazardReports, HazardCategories
+from apps.reports.models import HazardReports, HazardCategories, ReportImages
 from apps.reports.exceptions.report_exception import (
     InvalidImageCountException,
     InvalidHazardCategoryException,
@@ -25,6 +25,8 @@ from apps.reports.domain_errors.report_error import (
     StatusResolutionImageConflictError,
     MandatoryRemarksStatusError,
     ResolutionImageRequiredError,
+    MissingDuringPhotoError,
+    MissingAfterPhotoError,
 )
 from apps.accounts.services import UserService
 from apps.audits.services import AuditLogService
@@ -185,7 +187,10 @@ class ReportService:
         )
 
         for image_url in image_urls:
-            report.images.create(image_url=image_url)
+            report.images.create(
+                image_url=image_url,
+                photo_type=ReportImages.PhotoType.BEFORE,
+            )
 
         AuditLogService.log_create(
             user=report.reported_by,
@@ -290,7 +295,7 @@ class ReportService:
             new_status_str: str|None=None,
             new_severity_str: str|None=None,
             remarks: str|None=None,
-            resolution_image_urls: list[str]|None=None
+            resolution_images: list[dict]|None=None
     ) -> DomainResult[None]:
         authorized_reports = ReportService._authorized_reports(user=user)
 
@@ -304,7 +309,7 @@ class ReportService:
         new_severity_str = new_severity_str.strip().upper() if new_severity_str else None
         remarks = remarks.strip() if remarks else None
 
-        if (remarks and not new_status_str) or (resolution_image_urls and not new_status_str):
+        if (remarks and not new_status_str) or (resolution_images and not new_status_str):
             return DomainResult.error(InvalidReportUpdateError)
 
         if new_status_str:
@@ -325,19 +330,31 @@ class ReportService:
             updated_fields.append("remarks")
 
             if new_status_str == HazardReports.Status.RESOLVED:
-                if not resolution_image_urls:
+                # DO 47 s.2024 Appendix A-8: the Documentation Photolog must
+                # show the rectification as During (works in progress) and
+                # After (completed) photos. Before photos come from the
+                # citizen's original submission.
+                if not resolution_images:
                     return DomainResult.error(ResolutionImageRequiredError)
+
+                photo_types = {image["photo_type"] for image in resolution_images}
+
+                if ReportImages.PhotoType.DURING not in photo_types:
+                    return DomainResult.error(MissingDuringPhotoError)
+
+                if ReportImages.PhotoType.AFTER not in photo_types:
+                    return DomainResult.error(MissingAfterPhotoError)
 
                 report.resolved_at = timezone.now()
                 updated_fields.append("resolved_at")
 
-                for resolution_image_url in resolution_image_urls:
+                for image in resolution_images:
                     report.images.create(
-                        image_url=resolution_image_url,
-                        is_resolution=True
+                        image_url=image["image_url"],
+                        photo_type=image["photo_type"],
                     )
             else:
-                if resolution_image_urls:
+                if resolution_images:
                     return DomainResult.error(StatusResolutionImageConflictError)
 
             AuditLogService.log_report_status_change(

@@ -4,7 +4,7 @@ from decimal import Decimal
 from django.contrib.auth.models import AbstractUser
 from rest_framework import serializers
 
-from apps.reports.models import HazardReports
+from apps.reports.models import HazardReports, ReportImages
 from apps.audits.models import AuditLogs
 
 
@@ -89,6 +89,9 @@ class GetReportDetailResponseSerializer(serializers.Serializer):
 
     image_urls = serializers.SerializerMethodField()
 
+    #DO 47 photolog: grouped Before/During/After photos (visible to both)
+    photos = serializers.SerializerMethodField()
+
     #non-staff only
     status_timeline = serializers.SerializerMethodField()
     next_expected_statuses = serializers.ListField(child=serializers.CharField())
@@ -118,10 +121,24 @@ class GetReportDetailResponseSerializer(serializers.Serializer):
         return value.category.hazard_name
 
     def get_image_urls(self, value) -> list:
-        return [image.image_url for image in value.images.all() if image.is_resolution is False]
+        return [
+            image.image_url
+            for image in value.images.all()
+            if image.photo_type == ReportImages.PhotoType.BEFORE
+        ]
 
     def get_resolution_image_urls(self, value) -> list:
-        return [image.image_url for image in value.images.all() if image.is_resolution is True]
+        return [
+            image.image_url
+            for image in value.images.all()
+            if image.photo_type in (ReportImages.PhotoType.DURING, ReportImages.PhotoType.AFTER)
+        ]
+
+    def get_photos(self, value) -> dict:
+        photos: dict[str, list[str]] = {"before": [], "during": [], "after": []}
+        for image in value.images.all():
+            photos[image.photo_type.lower()].append(image.image_url)
+        return photos
 
     def get_status_timeline(self, value) -> list:
         audit_logs = [
@@ -180,10 +197,18 @@ class GetReportHistoryDetailResponseSerializer(serializers.Serializer):
         return value.category.hazard_name
 
     def get_image_urls(self, value) -> list[str]:
-        return [image.image_url for image in value.images.all() if image.is_resolution is False]
+        return [
+            image.image_url
+            for image in value.images.all()
+            if image.photo_type == ReportImages.PhotoType.BEFORE
+        ]
 
     def get_resolution_image_urls(self, value) -> list[str]:
-        return [image.image_url for image in value.images.all() if image.is_resolution is True]
+        return [
+            image.image_url
+            for image in value.images.all()
+            if image.photo_type in (ReportImages.PhotoType.DURING, ReportImages.PhotoType.AFTER)
+        ]
 
     def get_status_timeline(self, value) -> list[dict[str, Any]]:
         audit_logs = [
