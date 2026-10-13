@@ -36,6 +36,10 @@ class GetReportListResponseSerializer(serializers.Serializer):
     status = serializers.SerializerMethodField()
     created_at = serializers.DateTimeField()
 
+    #DO 47 SLA (visible to both staff and citizens)
+    due_at = serializers.DateTimeField(allow_null=True)
+    is_overdue = serializers.BooleanField()
+
     #staff only
     severity = serializers.CharField(min_length=2, max_length=2)
     address = serializers.CharField(max_length=225)
@@ -78,6 +82,10 @@ class GetReportDetailResponseSerializer(serializers.Serializer):
     address = serializers.CharField(max_length=255)
     description = serializers.CharField()
     remarks = serializers.CharField()
+
+    #DO 47 SLA (visible to both staff and citizens)
+    due_at = serializers.DateTimeField(allow_null=True)
+    is_overdue = serializers.BooleanField()
 
     image_urls = serializers.SerializerMethodField()
 

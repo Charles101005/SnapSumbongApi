@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils import timezone
 from django.contrib.contenttypes.fields import GenericRelation
 
 from .hazard_category_model import HazardCategories
@@ -109,6 +110,10 @@ class HazardReports(models.Model):
 
     remarks = models.TextField(blank=True, null=True)
 
+    # DO 47 s.2024 §4.1: due date = date noted + category response time.
+    # Null only for reports created before SLA tracking existed.
+    due_at = models.DateTimeField(null=True, blank=True, db_index=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
     resolved_at = models.DateTimeField(null=True)
 
@@ -120,6 +125,14 @@ class HazardReports(models.Model):
 
 
     objects = HazardReportManager()
+
+    @property
+    def is_overdue(self) -> bool:
+        # Phase-4 statuses (RESOLVED, CLOSED) are never overdue.
+        if not self.due_at or HazardReports.Status(self.status).phase == 4:
+            return False
+
+        return timezone.now() > self.due_at
 
     def save(self, *args, **kwargs):
         if not self.report_number:

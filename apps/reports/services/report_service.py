@@ -1,6 +1,7 @@
 import secrets
 from typing import Any
 from decimal import Decimal
+from datetime import timedelta
 
 from django.utils import timezone
 from django.db import transaction
@@ -165,6 +166,11 @@ class ReportService:
         assigned_staff = ReportService._get_next_report_assigned_to()
         initial_status = HazardReports.Status.ASSIGNED if assigned_staff else HazardReports.Status.NEW
 
+        # DO 47 s.2024 §4.1: SLA clock starts when the defect is noted
+        # (i.e., report creation) and runs for the category's response time.
+        now = timezone.now()
+        due_at = now + timedelta(days=category.response_time_days)
+
         report: HazardReports = HazardReports.objects.create(
             reported_by_id=reported_by_id,
             assigned_to=assigned_staff,
@@ -174,7 +180,8 @@ class ReportService:
             address=address,
             description=description,
             status=initial_status,
-            is_anonymous=is_anonymous
+            is_anonymous=is_anonymous,
+            due_at=due_at,
         )
 
         for image_url in image_urls:
@@ -226,6 +233,15 @@ class ReportService:
 
         if filters:
             queryset = queryset.filter(**filters)
+
+        # DO 47 s.2024 §4.1: overdue = open (non-phase-4) report past its due date.
+        if query_filters.get("overdue"):
+            open_statuses = [status.value for status in HazardReports.Status if status.phase < 4]
+            queryset = queryset.filter(
+                status__in=open_statuses,
+                due_at__isnull=False,
+                due_at__lt=timezone.now(),
+            )
 
         search_query = query_filters.get("q")
         if search_query:

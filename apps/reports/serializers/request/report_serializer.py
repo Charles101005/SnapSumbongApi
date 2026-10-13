@@ -59,6 +59,7 @@ class GetReportListRequestSerializer(serializers.Serializer):
 
     #staff only
     exclude_closed = serializers.BooleanField(required=False, default=False)
+    overdue = serializers.BooleanField(required=False, default=False)
     severity = serializers.CharField(required=False, min_length=2, max_length=2)
     from_date = serializers.DateField(required=False)
     to_date = serializers.DateField(required=False)
@@ -70,6 +71,7 @@ class GetReportListRequestSerializer(serializers.Serializer):
             attrs.pop("created_at", None)
         else:
             attrs.pop("exclude_closed", None)
+            attrs.pop("overdue", None)
             attrs.pop("severity", None)
             attrs.pop("from_date", None)
             attrs.pop("to_date", None)

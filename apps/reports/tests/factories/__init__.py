@@ -1,0 +1,1 @@
+from .report_factory import HazardCategoryFactory, HazardReportFactory
