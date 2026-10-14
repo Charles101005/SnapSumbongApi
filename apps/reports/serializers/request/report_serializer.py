@@ -100,6 +100,9 @@ class UpdateReportRequestSerializer(serializers.Serializer):
     severity = serializers.CharField()
     status = serializers.CharField()
     remarks = serializers.CharField()
+    # DO 47 §2: name of the technical personnel who validated the works —
+    # required when transitioning to Resolved.
+    validated_by_name = serializers.CharField(required=False, allow_blank=True)
     resolution_images = ResolutionImageItemSerializer(
         many=True,
         min_length=1,

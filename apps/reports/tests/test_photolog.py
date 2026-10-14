@@ -64,24 +64,24 @@ class TestResolvePhotologRules:
         )
         return officer, report
 
-    def test_resolve_with_during_and_after_succeeds(self, report_officer_role, supervisor_role):
-        _, report = self._officer_with_report(report_officer_role)
-        # DO 47 §2: the validator must differ from the assigned handler.
-        validator = UserFactory(role=supervisor_role, is_staff=True)
+    def test_resolve_with_during_and_after_succeeds(self, report_officer_role):
+        officer, report = self._officer_with_report(report_officer_role)
 
         result = ReportService.update_authorized_assigned_report(
-            user=validator,
+            user=officer,
             report_number=report.report_number,
             new_status_str=HazardReports.Status.RESOLVED,
             remarks="Pothole patched and compacted.",
             resolution_images=_resolve_images(),
+            validated_by_name="Engr. Dela Cruz",
         )
 
         assert result.is_success
         report.refresh_from_db()
         assert report.status == HazardReports.Status.RESOLVED
         assert report.resolved_at is not None
-        assert report.validated_by_id == validator.user_id
+        assert report.validated_by_id == officer.user_id
+        assert report.validated_by_name == "Engr. Dela Cruz"
 
         resolution_types = set(
             report.images.exclude(photo_type=ReportImages.PhotoType.BEFORE)

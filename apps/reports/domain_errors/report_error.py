@@ -39,14 +39,20 @@ MissingAfterPhotoError = DomainError(
     error_code="MISSING_AFTER_PHOTO",
 )
 
-SelfValidationDeniedError = DomainError(
-    detail="DO 47 requires the resolution to be validated by a staff member other than the assigned handler.",
-    status_code=status.HTTP_403_FORBIDDEN,
-    error_code="SELF_VALIDATION_DENIED",
-)
-
 MandatoryRemarksStatusError = DomainError(
     detail="A detailed remark is required when moving a report to this status.",
     status_code=status.HTTP_400_BAD_REQUEST,
     error_code="MANDATORY_REMARKS_STATUS",
+)
+
+ReportNotResolvedError = DomainError(
+    detail="Only reports with resolved status can be confirmed by the reporter.",
+    status_code=status.HTTP_409_CONFLICT,
+    error_code="CONFIRMATION_NOT_RESOLVED",
+)
+
+ValidatorNameRequiredError = DomainError(
+    detail="The name of the DO 47 validator is required when transitioning to resolved status.",
+    status_code=status.HTTP_400_BAD_REQUEST,
+    error_code="VALIDATOR_NAME_REQUIRED",
 )

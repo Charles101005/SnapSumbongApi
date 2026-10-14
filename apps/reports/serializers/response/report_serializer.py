@@ -1,7 +1,6 @@
 from typing import Any
 from decimal import Decimal
 
-from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from rest_framework import serializers
 
@@ -99,6 +98,10 @@ class GetReportDetailResponseSerializer(serializers.Serializer):
     due_at = serializers.DateTimeField(allow_null=True)
     is_overdue = serializers.BooleanField()
 
+    #Citizen confirmation marker (visible to both): set when the reporter
+    #closed the report; null on staff force-closes or non-closed reports.
+    confirmed_at = serializers.DateTimeField(allow_null=True)
+
     image_urls = serializers.SerializerMethodField()
 
     #DO 47 photolog: grouped Before/During/After photos (visible to both)
@@ -112,8 +115,8 @@ class GetReportDetailResponseSerializer(serializers.Serializer):
     #staff only
     reported_by = serializers.SerializerMethodField()
     assigned_to = serializers.SerializerMethodField()
+    validated_by_name = serializers.CharField(allow_null=True)
     validated_by = serializers.SerializerMethodField()
-    self_validation_allowed = serializers.SerializerMethodField()
     category = serializers.SerializerMethodField()
     severity = serializers.CharField()
     created_at = serializers.DateTimeField()
@@ -137,9 +140,6 @@ class GetReportDetailResponseSerializer(serializers.Serializer):
 
     def get_validated_by(self, value) -> dict | None:
         return _staff_display_name(value.validated_by)
-
-    def get_self_validation_allowed(self, value) -> bool:
-        return settings.ALLOW_SELF_VALIDATION
 
     def get_category(self, value) -> str:
         return value.category.hazard_name
@@ -188,14 +188,15 @@ class GetReportDetailResponseSerializer(serializers.Serializer):
 
         if user and user.is_staff:
             data.pop("status_timeline", None)
-            data.pop("next_expected_statuses", None)
+            # next_expected_statuses is kept for staff: the report management
+            # modal restricts its status dropdown to the transition matrix.
             data.pop("resolution_image_urls", None)
 
         else:
             data.pop("reported_by", None)
             data.pop("assigned_to", None)
+            data.pop("validated_by_name", None)
             data.pop("validated_by", None)
-            data.pop("self_validation_allowed", None)
             data.pop("category", None)
             data.pop("severity", None)
             data.pop("created_at", None)

@@ -27,7 +27,8 @@ from apps.reports.domain_errors.report_error import (
     ResolutionImageRequiredError,
     MissingDuringPhotoError,
     MissingAfterPhotoError,
-    SelfValidationDeniedError,
+    ReportNotResolvedError,
+    ValidatorNameRequiredError,
 )
 from apps.accounts.services import UserService
 from apps.audits.services import AuditLogService
@@ -298,7 +299,8 @@ class ReportService:
             new_status_str: str|None=None,
             new_severity_str: str|None=None,
             remarks: str|None=None,
-            resolution_images: list[dict]|None=None
+            resolution_images: list[dict]|None=None,
+            validated_by_name: str|None=None
     ) -> DomainResult[None]:
         authorized_reports = ReportService._authorized_reports(user=user)
 
@@ -348,15 +350,16 @@ class ReportService:
                 if ReportImages.PhotoType.AFTER not in photo_types:
                     return DomainResult.error(MissingAfterPhotoError)
 
-                # DO 47 s.2024 §2: the validator of completed rectification
-                # works must not be the assigned handler (transparency rule).
-                # ALLOW_SELF_VALIDATION exists only for single-staff demos.
-                if (
-                    not settings.ALLOW_SELF_VALIDATION
-                    and report.assigned_to_id
-                    and user.user_id == report.assigned_to_id
-                ):
-                    return DomainResult.error(SelfValidationDeniedError)
+                # DO 47 s.2024 §2: the resolving officer declares the name of
+                # the technical personnel who validated the completed works.
+                # The assigned handler may resolve their own report as long
+                # as this name is recorded (any name is accepted).
+                validated_by_name = (validated_by_name or "").strip()
+                if not validated_by_name:
+                    return DomainResult.error(ValidatorNameRequiredError)
+
+                report.validated_by_name = validated_by_name
+                updated_fields.append("validated_by_name")
 
                 report.validated_by = user
                 updated_fields.append("validated_by")
@@ -398,6 +401,39 @@ class ReportService:
 
         if updated_fields:
             report.save(update_fields=updated_fields)
+
+        return DomainResult.success(None)
+
+    @staticmethod
+    @transaction.atomic
+    def confirm_report_resolution(*, user: Users, report_number: str) -> DomainResult[None]:
+        # Citizen confirmation path to CLOSED: only the reporter can close
+        # their own report, and only after it has been resolved (works done
+        # + DO 47 validation). Staff force-closing (e.g. out of DO 47
+        # jurisdiction) goes through update_authorized_assigned_report
+        # instead and leaves confirmed_at null.
+        report = HazardReports.objects.filter(
+            reported_by_id=user.user_id,
+            report_number__iexact=report_number,
+        ).first()
+        if not report:
+            raise ReportDoesNotExistException()
+
+        if report.status != HazardReports.Status.RESOLVED:
+            return DomainResult.error(ReportNotResolvedError)
+
+        old_status = HazardReports.Status(report.status)
+        report.status = HazardReports.Status.CLOSED
+        report.confirmed_at = timezone.now()
+        report.save(update_fields=["status", "confirmed_at"])
+
+        AuditLogService.log_report_status_change(
+            user=user,
+            old_status=old_status.label,
+            new_status=report.status.label,
+            remarks="Resolution confirmed by the reporter.",
+            report=report,
+        )
 
         return DomainResult.success(None)
 

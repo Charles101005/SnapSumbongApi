@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db.models import Count, Q, QuerySet
 
 from apps.accounts.models import Users
@@ -10,7 +11,9 @@ from shared.authorization.service import AuthorizationService
 
 
 # DO 47 s.2024-aligned compliance weights: SLA adherence dominates, with
-# photolog completeness and independent validation making up the remainder.
+# photolog completeness and declared-validator validation making up the
+# remainder (a report counts as validated when the resolving officer recorded
+# a validator name that differs from the handler's own name).
 _COMPLIANCE_WEIGHTS = {
     "sla_on_time": 60.0,
     "photolog_completeness": 25.0,
@@ -96,12 +99,24 @@ class AnalyticService:
     def get_handler_compliance_metrics() -> DomainResult[dict]:
         """DO 47-aligned per-handler compliance score (0-100 + adjectival).
 
-        Scored only on phase-4 (Resolved/Closed) reports assigned to a staff
+        Scored on phase-4 (Resolved/Closed) reports assigned to a staff
         handler: SLA on-time % (weight 60), photolog completeness % (weight
-        25), independent validation % (weight 15). Components without a
-        denominator are dropped and the remaining weights renormalized, so
-        legacy rows predating due_at or the photolog still score fairly.
+        25), declared-validator % (weight 15 — validator name present and
+        differing from the handler's display name). Components without a
+        denominator are dropped and the remaining weights renormalized.
+
+        Every resolved/closed row counts toward `resolved_count`, but only
+        rows the DO 47 rules actually bound contribute denominators:
+
+        - Never-resolved closures (neither `resolved_at` nor `confirmed_at`,
+          e.g. ON_HOLD -> CLOSED transfers to another department) score no
+          component: photos/validation were never required for them.
+        - Pre-enforcement rows (`due_at` null — created before SLA tracking,
+          which predates the DURING/AFTER photolog schema — or created
+          before settings.DO47_COMPLIANCE_SINCE) likewise score nothing.
         """
+        compliance_since = settings.DO47_COMPLIANCE_SINCE
+
         reports = (
             HazardReports.objects.filter(
                 status__in=[HazardReports.Status.RESOLVED, HazardReports.Status.CLOSED],
@@ -127,9 +142,24 @@ class AnalyticService:
             })
             stats["resolved_count"] += 1
 
-            if report.due_at is not None:
+            # Activity-only rows: counted under resolved_count, but no
+            # component applies to them. Never-resolved closures (e.g.
+            # ON_HOLD -> CLOSED transfers to another department) never
+            # required a photolog or validation, and pre-enforcement rows
+            # predate the SLA/photolog rules entirely.
+            never_resolved = report.resolved_at is None and report.confirmed_at is None
+            pre_enforcement = report.due_at is None or (
+                compliance_since is not None
+                and report.created_at.date() < compliance_since
+            )
+            if never_resolved or pre_enforcement:
+                continue
+
+            # A component is only judged when the data needed to judge it
+            # exists: on-time requires both the due date and a resolve time.
+            if report.due_at is not None and report.resolved_at is not None:
                 stats["sla_total"] += 1
-                if report.resolved_at is not None and report.resolved_at <= report.due_at:
+                if report.resolved_at <= report.due_at:
                     stats["sla_on_time"] += 1
 
             stats["photolog_total"] += 1
@@ -138,9 +168,12 @@ class AnalyticService:
                 stats["photolog_ok"] += 1
 
             stats["validation_total"] += 1
+            # DO 47 §2: counts when a validator name was declared at resolve
+            # time AND it differs from the assigned handler's own name.
+            declared_validator = (report.validated_by_name or "").strip()
             if (
-                report.validated_by_id is not None
-                and report.validated_by_id != report.assigned_to_id
+                declared_validator
+                and declared_validator.lower() != _handler_display_name(handler).lower()
             ):
                 stats["validation_ok"] += 1
 

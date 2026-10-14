@@ -1,3 +1,4 @@
+from datetime import date
 from pathlib import Path
 from dotenv import load_dotenv
 import os
@@ -29,11 +30,6 @@ DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG: bool = os.getenv("DEBUG", "False") == "True"
 
-# DO 47 s.2024 §2 transparency rule: the staff member who validates completed
-# rectification works must not be the assigned handler. Set True only for
-# single-staff local demos so one account can still resolve reports.
-ALLOW_SELF_VALIDATION: bool = os.getenv("ALLOW_SELF_VALIDATION", "False").upper() == "TRUE"
-
 SECURE_SSL_REDIRECT: bool = os.environ["SECURE_SSL_REDIRECT"].upper() == "TRUE"
 
 ALLOWED_HOSTS: list[str] = os.environ["ALLOWED_HOSTS"].split(",")
@@ -44,3 +40,11 @@ if "runserver" in sys.argv:
     COOKIE_DOMAIN: str|None = None
 else:
     COOKIE_DOMAIN: str = os.environ["COOKIE_DOMAIN"]
+
+# DO 47 s.2024 compliance scoring: reports created before this date predate
+# the SLA/photolog/validation obligations, so they are counted for activity
+# but exempt from all scoring components. Override in .env with the date the
+# DO 47 rules went live in this deployment (ISO format, e.g. 2025-06-01).
+DO47_COMPLIANCE_SINCE: date = date.fromisoformat(
+    os.getenv("DO47_COMPLIANCE_SINCE", "2024-04-08")
+)

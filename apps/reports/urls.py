@@ -1,6 +1,6 @@
 from django.urls import path
 
-from .views.report_view import ReportImageSignatureView, ReportListView, ReportDetailView, report_history_detail_view
+from .views.report_view import ReportImageSignatureView, ReportListView, ReportDetailView, ReportConfirmResolutionView, report_history_detail_view
 from .views.hazard_category_view import HazardCategoryListView
 from .views.lookup_view import lookup_report_view
 
@@ -13,6 +13,7 @@ urlpatterns = [
     path('lookup/', lookup_report_view, name='lookup_report'),
 
     path('history/<str:report_number>/', report_history_detail_view, name='report_history'),
+    path('<str:report_number>/confirm-resolution/', ReportConfirmResolutionView.as_view(), name='report_confirm_resolution'),
     path('', ReportListView.as_view(), name='report_list'),
     path('<str:report_number>/', ReportDetailView.as_view(), name='report_detail'),
 
