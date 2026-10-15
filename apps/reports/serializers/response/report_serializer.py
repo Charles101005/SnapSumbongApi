@@ -114,6 +114,9 @@ class GetReportDetailResponseSerializer(serializers.Serializer):
 
     #staff only
     reported_by = serializers.SerializerMethodField()
+    #moderation target: real reporter account even on anonymous reports
+    #(anonymity is display-only; enforcement still needs the account)
+    reported_by_user_number = serializers.SerializerMethodField()
     assigned_to = serializers.SerializerMethodField()
     validated_by_name = serializers.CharField(allow_null=True)
     validated_by = serializers.SerializerMethodField()
@@ -134,6 +137,9 @@ class GetReportDetailResponseSerializer(serializers.Serializer):
             return full_name
 
         return "<Anonymous>"
+
+    def get_reported_by_user_number(self, value) -> str:
+        return value.reported_by.user_number
 
     def get_assigned_to(self, value) -> dict | None:
         return _staff_display_name(value.assigned_to)
@@ -194,6 +200,7 @@ class GetReportDetailResponseSerializer(serializers.Serializer):
 
         else:
             data.pop("reported_by", None)
+            data.pop("reported_by_user_number", None)
             data.pop("assigned_to", None)
             data.pop("validated_by_name", None)
             data.pop("validated_by", None)

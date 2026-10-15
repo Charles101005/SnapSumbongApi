@@ -115,3 +115,51 @@ class TestInvalidStatus:
         statuses = [r["status"] for r in response.data["results"]]
         assert "Invalid" not in statuses
         assert "Under Review" in statuses
+
+    def test_detail_exposes_reporter_user_number_to_staff(self, api_client, report_officer_role):
+        officer = UserFactory(role=report_officer_role, is_staff=True)
+        reporter = UserFactory(role=report_officer_role)
+        report = HazardReportFactory(
+            status=HazardReports.Status.INVALID,
+            assigned_to=officer,
+            reported_by=reporter,
+        )
+
+        api_client.force_authenticate(user=officer)
+        response = api_client.get(f"/reports/{report.report_number}/")
+
+        assert response.status_code == 200
+        assert response.data["reported_by_user_number"] == reporter.user_number
+
+    def test_detail_exposes_reporter_user_number_for_anonymous_reports_to_staff(
+        self, api_client, report_officer_role
+    ):
+        officer = UserFactory(role=report_officer_role, is_staff=True)
+        reporter = UserFactory(role=report_officer_role)
+        report = HazardReportFactory(
+            status=HazardReports.Status.INVALID,
+            assigned_to=officer,
+            reported_by=reporter,
+            is_anonymous=True,
+        )
+
+        api_client.force_authenticate(user=officer)
+        response = api_client.get(f"/reports/{report.report_number}/")
+
+        assert response.status_code == 200
+        assert response.data["reported_by"] == "<Anonymous>"
+        assert response.data["reported_by_user_number"] == reporter.user_number
+
+    def test_detail_hides_reporter_user_number_from_citizen(self, api_client, citizen_role):
+        reporter = UserFactory(role=citizen_role)
+        report = HazardReportFactory(
+            status=HazardReports.Status.INVALID,
+            reported_by=reporter,
+        )
+
+        api_client.force_authenticate(user=reporter)
+        response = api_client.get(f"/reports/{report.report_number}/")
+
+        assert response.status_code == 200
+        assert "reported_by_user_number" not in response.data
+        assert "reported_by" not in response.data
