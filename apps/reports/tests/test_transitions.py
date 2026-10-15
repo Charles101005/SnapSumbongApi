@@ -8,13 +8,14 @@ from apps.accounts.tests.factories import UserFactory
 @pytest.mark.parametrize(
     "status,expected",
     [
-        (HazardReports.Status.NEW, ["Under Review"]),
-        (HazardReports.Status.ASSIGNED, ["Under Review"]),
-        (HazardReports.Status.UNDER_REVIEW, ["On-Hold", "Dispatched"]),
-        (HazardReports.Status.ON_HOLD, ["Under Review", "Dispatched", "Closed"]),
-        (HazardReports.Status.DISPATCHED, ["Resolved", "On-Hold"]),
+        (HazardReports.Status.NEW, ["Under Review", "Invalid"]),
+        (HazardReports.Status.ASSIGNED, ["Under Review", "Invalid"]),
+        (HazardReports.Status.UNDER_REVIEW, ["On-Hold", "Dispatched", "Invalid"]),
+        (HazardReports.Status.ON_HOLD, ["Under Review", "Dispatched", "Closed", "Invalid"]),
+        (HazardReports.Status.DISPATCHED, ["Resolved", "On-Hold", "Invalid"]),
         (HazardReports.Status.RESOLVED, ["Closed"]),
         (HazardReports.Status.CLOSED, []),
+        (HazardReports.Status.INVALID, []),
     ],
 )
 def test_next_expected_statuses_matrix(status, expected):
@@ -40,7 +41,7 @@ class TestNextExpectedStatusesInDetailEndpoint:
         response = api_client.get(f"/reports/{report.report_number}/")
 
         assert response.status_code == 200
-        assert response.data["next_expected_statuses"] == ["On-Hold", "Dispatched"]
+        assert response.data["next_expected_statuses"] == ["On-Hold", "Dispatched", "Invalid"]
 
     def test_staff_detail_closed_report_has_no_transitions(self, api_client, report_officer_role):
         officer = UserFactory(role=report_officer_role, is_staff=True)
@@ -72,4 +73,5 @@ class TestNextExpectedStatusesInDetailEndpoint:
             "Under Review",
             "Dispatched",
             "Closed",
+            "Invalid",
         ]

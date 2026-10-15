@@ -42,3 +42,9 @@ class UserPermissions:
         description='Allows the role to ACTIVATE any user accounts',
         module=_module
     )
+
+    WARN: PermissionDefinition = PermissionDefinition(
+        name='user:warn',
+        description='Allows the role to ISSUE WARNINGS to citizen accounts',
+        module=_module
+    )

@@ -6,7 +6,7 @@ from typing import Any
 from datetime import date
 
 from django.contrib.auth.hashers import make_password
-from django.db.models import Case, When, Value, IntegerField, Q
+from django.db.models import Case, When, Value, IntegerField, Q, Count
 from django.db import transaction
 from django.conf import settings
 
@@ -242,6 +242,11 @@ class UserService:
             "role"
         )
 
+        if not is_staff:
+            queryset = queryset.annotate(
+                warning_count=Count("received_warnings")
+            )
+
         filter_map = {
             "is_active": "is_active",
             "role_id": "role_id",
@@ -277,10 +282,17 @@ class UserService:
             user_number: str,
             is_staff: bool,
     ) -> DomainResult[Users]:
-        user = Users.objects.filter(
+        queryset = Users.objects.filter(
             user_number__iexact=user_number,
             is_staff=is_staff
-        ).select_related("role").first()
+        ).select_related("role")
+
+        if not is_staff:
+            queryset = queryset.annotate(
+                warning_count=Count("received_warnings")
+            )
+
+        user = queryset.first()
 
         if user is None:
             return DomainResult.error(UserNotFoundError)
