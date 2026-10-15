@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="x-apple-disable-message-reformatting">
+  <meta name="format-detection" content="telephone=no, date=no, address=no, email=no, url=no">
+  <meta name="color-scheme" content="light dark">
+  <meta name="supported-color-schemes" content="light dark">
+  <title>Your {{app_name}} account has been banned</title>
+  <style>
+    /* Resets */
+    body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+    table, td { border-collapse: collapse; }
+    img { border: 0; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic; }
+    body { margin: 0 !important; padding: 0 !important; width: 100% !important; }
+
+    /* Stop iOS / Gmail from styling auto-detected dates, addresses and links */
+    a[x-apple-data-detectors], u + #body a, #MessageViewBody a {
+      color: inherit !important;
+      text-decoration: none !important;
+      font-size: inherit !important;
+      font-family: inherit !important;
+      font-weight: inherit !important;
+      line-height: inherit !important;
+    }
+
+    /* Small screens (enhancement only: layout is readable without this) */
+    @media only screen and (max-width: 480px) {
+      .outer-pad { padding: 24px 16px !important; }
+      .panel-pad { padding: 18px 16px !important; }
+      .note-pad  { padding: 12px 14px !important; }
+      .stack     { display: block !important; width: 100% !important; }
+    }
+
+    /* Dark mode (hybrid): clients that honor prefers-color-scheme (Apple Mail,
+       iOS Mail, Gmail, Yahoo, Outlook.com) get the palette below; clients that
+       don't (Outlook desktop) keep the light inline styles. */
+    @media only screen and (prefers-color-scheme: dark) {
+      body,
+      .bg-page {
+        background-color: #0b1220 !important;
+      }
+
+      .bg-card {
+        background-color: #131c2e !important;
+        border-color: #263450 !important;
+      }
+
+      .divider {
+        border-color: #263450 !important;
+      }
+
+      .note {
+        background-color: #152038 !important;
+        border-color: #263450 !important;
+        border-left-color: #8ab0ff !important;
+      }
+
+      .badge-danger {
+        background-color: #3f1515 !important;
+        color: #fca5a5 !important;
+      }
+
+      .t-main {
+        color: #e7edf8 !important;
+      }
+
+      .t-muted {
+        color: #94a3b8 !important;
+      }
+
+      .t-accent {
+        color: #8ab0ff !important;
+      }
+    }
+  </style>
+</head>
+
+<body id="body" style="margin:0;padding:0;width:100%;background-color:#ffffff;">
+
+  <!-- Preheader: inbox preview text (hidden in the body) -->
+  <div style="display:none;font-size:1px;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all;color:#ffffff;">
+    Your {{app_name}} account has been banned
+    &#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;
+  </div>
+
+  <!-- Full-width background wrapper -->
+  <table role="presentation" class="bg-page" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="width:100%;background-color:#ffffff;">
+    <tr>
+      <td align="center" class="outer-pad" style="padding:40px 16px;">
+
+        <!--
+          Fluid-hybrid container.
+          width="600" attribute = fixed width where max-width is ignored (older Outlook).
+          width:100%;max-width:600px = fluid everywhere else.
+        -->
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;">
+
+          <!-- Greeting + intro -->
+          <tr>
+            <td class="t-main" style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:16px;line-height:24px;color:#0f172a;padding-bottom:12px;">
+              Hi {{first_name}},
+            </td>
+          </tr>
+          <tr>
+            <td class="t-main" style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:16px;line-height:24px;color:#0f172a;padding-bottom:24px;">
+              This is to inform you  that your {{app_name}} account has been banned after a review of the reports submitted from it. Details of this decision are below.
+            </td>
+          </tr>
+
+          <!-- Restriction details card -->
+          <tr>
+            <td>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td class="panel-pad bg-card" bgcolor="#ffffff" style="background-color:#ffffff;border:1px solid #e2e8f7;border-radius:12px;padding:20px 24px;">
+
+                    <!-- Card header: title + status badge -->
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td class="t-main divider" align="left" valign="middle" style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:16px;line-height:24px;font-weight:bold;color:#0f172a;padding-bottom:12px;border-bottom:1px solid #e2e8f7;">
+                          Account Restriction
+                        </td>
+                        <td class="divider" align="right" valign="middle" style="padding-bottom:12px;border-bottom:1px solid #e2e8f7;">
+                          <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="right">
+                            <tr>
+                              <td class="badge-danger" bgcolor="#fee2e2" style="background-color:#fee2e2;border-radius:6px;padding:3px 10px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:12px;line-height:18px;font-weight:bold;color:#991b1b;">
+                                Banned
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- Details grid: 2 columns, stacks on small screens -->
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;table-layout:fixed;">
+                      <tr>
+                        <td class="stack" width="50%" valign="top" style="width:50%;padding-top:16px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
+                          <div class="t-muted" style="font-size:12px;line-height:16px;color:#64748b;">Account email</div>
+                          <div class="t-main" style="font-size:15px;line-height:22px;color:#0f172a;">{{email}}</div>
+                        </td>
+                        <td class="stack" width="50%" valign="top" style="width:50%;padding-top:16px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
+                          <div class="t-muted" style="font-size:12px;line-height:16px;color:#64748b;">Case reference</div>
+                          <div class="t-accent" style="font-family:'Courier New',Courier,monospace;font-size:15px;line-height:22px;font-weight:bold;color:#1d4ed8;">{{case_id}}</div>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td class="stack" width="50%" valign="top" style="width:50%;padding-top:16px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
+                          <div class="t-muted" style="font-size:12px;line-height:16px;color:#64748b;">Reports flagged</div>
+                          <div class="t-main" style="font-size:15px;line-height:22px;color:#0f172a;">{{flagged_report_count}} of {{total_report_count}} submitted</div>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- Reason -->
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:20px;">
+                      <tr>
+                        <td class="note-pad note" bgcolor="#f8faff" style="background-color:#f8faff;border:1px solid #e2e8f7;border-left:4px solid #1d4ed8;border-radius:8px;padding:14px 16px;">
+                          <div class="t-muted" style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:12px;line-height:16px;color:#64748b;padding-bottom:4px;">
+                            Reason
+                          </div>
+                          <div class="t-main" style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:15px;line-height:22px;color:#0f172a;word-wrap:break-word;overflow-wrap:break-word;word-break:break-word;">
+                            {{reason}}
+                          </div>
+                          <div class="t-muted" style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:12px;line-height:16px;color:#64748b;padding-top:12px;padding-bottom:2px;">
+                            Flagged reports
+                          </div>
+                          <div class="t-accent" style="font-family:'Courier New',Courier,monospace;font-size:13px;line-height:20px;color:#1d4ed8;word-wrap:break-word;overflow-wrap:break-word;word-break:break-word;">
+                            {% for report_number in flagged_report_numbers %}
+                            &bull;&nbsp;{{ report_number }}{% if not forloop.last %}<br>{% endif %}
+                            {% endfor %}
+                          </div>
+                        </td>
+                      </tr>
+                    </table>
+
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Why this matters -->
+          <tr>
+            <td class="t-main" style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:15px;line-height:24px;color:#0f172a;padding-top:24px;">
+              Repeated invalid or inaccurate reports take crews away from genuine hazards, so we limit accounts that regularly submit them.
+            </td>
+          </tr>
+
+          <!-- What this means -->
+          <tr>
+            <td class="t-muted" style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:12px;line-height:16px;letter-spacing:1px;text-transform:uppercase;color:#64748b;padding-top:28px;padding-bottom:8px;">
+              What this means
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td class="t-accent" width="20" valign="top" style="width:20px;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:24px;color:#1d4ed8;padding-bottom:6px;">&bull;</td>
+                  <td class="t-main" valign="top" style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:15px;line-height:24px;color:#0f172a;padding-bottom:6px;">You can no longer log in or submit new reports with this account.</td>
+                </tr>
+                <tr>
+                  <td class="t-accent" width="20" valign="top" style="width:20px;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:24px;color:#1d4ed8;">&bull;</td>
+                  <td class="t-main" valign="top" style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:15px;line-height:24px;color:#0f172a;">For urgent road hazards, please contact emergency authorities immediately.</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Divider -->
+          <tr>
+            <td class="divider" style="padding-top:32px;border-bottom:1px solid #e2e8f0;font-size:0;line-height:0;">&nbsp;</td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td class="t-muted" align="left" style="padding-top:20px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:12px;line-height:18px;color:#64748b;">
+              Keep this email for your records.<br>
+              This is an automated message. Please don&rsquo;t reply to this email.
+            </td>
+          </tr>
+
+        </table>
+
+      </td>
+    </tr>
+  </table>
+
+</body>
+</html>

@@ -6,8 +6,8 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="x-apple-disable-message-reformatting">
     <meta name="format-detection" content="telephone=no, date=no, address=no, email=no, url=no">
-    <meta name="color-scheme" content="light only">
-    <meta name="supported-color-schemes" content="light only">
+    <meta name="color-scheme" content="light dark">
+    <meta name="supported-color-schemes" content="light dark">
     <title>Your report {{report_number}} has been changed to {{new_status}}</title>
     <style>
         /* Resets */
@@ -62,6 +62,52 @@
                 width: 100% !important;
             }
         }
+
+        /* Dark mode (hybrid): clients that honor prefers-color-scheme (Apple Mail,
+           iOS Mail, Gmail, Yahoo, Outlook.com) get the palette below; clients that
+           don't (Outlook desktop) keep the light inline styles. */
+        @media only screen and (prefers-color-scheme: dark) {
+            body,
+            .bg-page {
+                background-color: #0b1220 !important;
+            }
+
+            .bg-card {
+                background-color: #131c2e !important;
+                border-color: #263450 !important;
+            }
+
+            .divider {
+                border-color: #263450 !important;
+            }
+
+            .note {
+                background-color: #152038 !important;
+                border-color: #263450 !important;
+                border-left-color: #8ab0ff !important;
+            }
+
+            .badge-ok {
+                background-color: #123524 !important;
+                color: #6ee7a8 !important;
+            }
+
+            .t-main {
+                color: #e7edf8 !important;
+            }
+
+            .t-muted {
+                color: #94a3b8 !important;
+            }
+
+            .t-accent {
+                color: #8ab0ff !important;
+            }
+
+            .t-old {
+                color: #64748b !important;
+            }
+        }
     </style>
 </head>
 
@@ -74,7 +120,7 @@
 </div>
 
 <!-- Full-width background wrapper -->
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff"
+<table role="presentation" class="bg-page" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff"
        style="width:100%;background-color:#ffffff;">
     <tr>
         <td align="center" class="outer-pad" style="padding:40px 16px;">
@@ -89,13 +135,13 @@
 
                 <!-- Greeting + intro -->
                 <tr>
-                    <td style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:16px;line-height:24px;color:#0f172a;padding-bottom:12px;">
+                    <td class="t-main" style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:16px;line-height:24px;color:#0f172a;padding-bottom:12px;">
                         Hi {{first_name}},
                     </td>
                 </tr>
                 <tr>
-                    <td style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:16px;line-height:24px;color:#0f172a;padding-bottom:24px;">
-                        Your report <strong style="color:#1d4ed8;">{{report_number}}</strong> has been changed to
+                    <td class="t-main" style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:16px;line-height:24px;color:#0f172a;padding-bottom:24px;">
+                        Your report <strong class="t-accent" style="color:#1d4ed8;">{{report_number}}</strong> has been changed to
                         {{new_status}}.
                     </td>
                 </tr>
@@ -105,7 +151,7 @@
                     <td>
                         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                             <tr>
-                                <td class="panel-pad" bgcolor="#ffffff"
+                                <td class="panel-pad bg-card" bgcolor="#ffffff"
                                     style="background-color:#ffffff;border:1px solid #e2e8f7;border-radius:12px;padding:20px 24px;">
 
                                     <!-- Report details: just enough to identify the report -->
@@ -120,17 +166,17 @@
                                         <tr>
                                             <td class="stack" width="50%" valign="top"
                                                 style="width:50%;padding-top:10px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
-                                                <div style="font-size:12px;line-height:16px;color:#64748b;">Report ID
+                                                <div class="t-muted" style="font-size:12px;line-height:16px;color:#64748b;">Report ID
                                                 </div>
-                                                <div style="font-family:'Courier New',Courier,monospace;font-size:15px;line-height:22px;font-weight:bold;color:#1d4ed8;">
+                                                <div class="t-accent" style="font-family:'Courier New',Courier,monospace;font-size:15px;line-height:22px;font-weight:bold;color:#1d4ed8;">
                                                     {{report_number}}
                                                 </div>
                                             </td>
                                             <td class="stack" width="50%" valign="top"
                                                 style="width:50%;padding-top:10px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
-                                                <div style="font-size:12px;line-height:16px;color:#64748b;">Category
+                                                <div class="t-muted" style="font-size:12px;line-height:16px;color:#64748b;">Category
                                                 </div>
-                                                <div style="font-size:15px;line-height:22px;color:#0f172a;">
+                                                <div class="t-main" style="font-size:15px;line-height:22px;color:#0f172a;">
                                                     {{category}}
                                                 </div>
                                             </td>
@@ -138,9 +184,9 @@
                                         <tr>
                                             <td class="stack" colspan="2" valign="top"
                                                 style="padding-top:12px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
-                                                <div style="font-size:12px;line-height:16px;color:#64748b;">Submitted
+                                                <div class="t-muted" style="font-size:12px;line-height:16px;color:#64748b;">Submitted
                                                 </div>
-                                                <div style="font-size:15px;line-height:22px;color:#0f172a;">
+                                                <div class="t-main" style="font-size:15px;line-height:22px;color:#0f172a;">
                                                     {{submitted_at}}
                                                 </div>
                                             </td>
@@ -148,9 +194,9 @@
                                         <tr>
                                             <td class="stack" colspan="2" valign="top"
                                                 style="padding-top:12px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
-                                                <div style="font-size:12px;line-height:16px;color:#64748b;">Location
+                                                <div class="t-muted" style="font-size:12px;line-height:16px;color:#64748b;">Location
                                                 </div>
-                                                <div style="font-size:15px;line-height:22px;color:#0f172a;word-wrap:break-word;overflow-wrap:break-word;word-break:break-word;">
+                                                <div class="t-main" style="font-size:15px;line-height:22px;color:#0f172a;word-wrap:break-word;overflow-wrap:break-word;word-break:break-word;">
                                                     {{location}}
                                                 </div>
                                             </td>
@@ -160,7 +206,7 @@
                                     <!-- Divider between details and status -->
                                     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                                         <tr>
-                                            <td style="padding-top:18px;border-bottom:1px solid #e2e8f7;font-size:0;line-height:0;">
+                                            <td class="divider" style="padding-top:18px;border-bottom:1px solid #e2e8f7;font-size:0;line-height:0;">
                                                 &nbsp;
                                             </td>
                                         </tr>
@@ -172,7 +218,7 @@
                                     <!-- Label -->
                                     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                                         <tr>
-                                            <td style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:12px;line-height:16px;letter-spacing:1px;text-transform:uppercase;color:#64748b;padding-bottom:10px;">
+                                            <td class="t-muted" style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:12px;line-height:16px;letter-spacing:1px;text-transform:uppercase;color:#64748b;padding-bottom:10px;">
                                                 Status updated
                                             </td>
                                         </tr>
@@ -181,15 +227,15 @@
                                     <!-- Old status -> new status badge -->
                                     <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                                         <tr>
-                                            <td valign="middle"
+                                            <td class="t-old" valign="middle"
                                                 style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:14px;line-height:20px;color:#94a3b8;text-decoration:line-through;padding-right:8px;">
                                                 {{old_status}}
                                             </td>
-                                            <td valign="middle"
+                                            <td class="t-accent" valign="middle"
                                                 style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:20px;color:#1d4ed8;padding-right:8px;">
                                                 &rarr;
                                             </td>
-                                            <td valign="middle" bgcolor="#dcfce7"
+                                            <td class="badge-ok" valign="middle" bgcolor="#dcfce7"
                                                 style="background-color:#dcfce7;border-radius:999px;padding:4px 12px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:12px;line-height:18px;letter-spacing:0.5px;text-transform:uppercase;font-weight:bold;color:#166534;">
                                                 &#10003;&nbsp;{{new_status}}
                                             </td>
@@ -200,12 +246,12 @@
                                     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
                                            style="margin-top:16px;">
                                         <tr>
-                                            <td class="notes-pad" bgcolor="#f8faff"
+                                            <td class="notes-pad note" bgcolor="#f8faff"
                                                 style="background-color:#f8faff;border:1px solid #e2e8f7;border-left:4px solid #1d4ed8;border-radius:8px;padding:14px 16px;">
-                                                <div style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:12px;line-height:16px;color:#64748b;padding-bottom:4px;">
+                                                <div class="t-muted" style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:12px;line-height:16px;color:#64748b;padding-bottom:4px;">
                                                     Remarks
                                                 </div>
-                                                <div style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:15px;line-height:22px;color:#0f172a;">
+                                                <div class="t-main" style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:15px;line-height:22px;color:#0f172a;">
                                                     &ldquo;{{remarks}}&rdquo;
                                                 </div>
                                             </td>
@@ -220,12 +266,12 @@
 
                 <!-- Divider -->
                 <tr>
-                    <td style="padding-top:32px;border-bottom:1px solid #e2e8f0;font-size:0;line-height:0;">&nbsp;</td>
+                    <td class="divider" style="padding-top:32px;border-bottom:1px solid #e2e8f0;font-size:0;line-height:0;">&nbsp;</td>
                 </tr>
 
                 <!-- Footer -->
                 <tr>
-                    <td align="left"
+                    <td class="t-muted" align="left"
                         style="padding-top:20px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:12px;line-height:18px;color:#64748b;">
                         This is an automated message. Please don&rsquo;t reply to this email.
                     </td>

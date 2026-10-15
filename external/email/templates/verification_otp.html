@@ -6,8 +6,8 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="x-apple-disable-message-reformatting">
     <meta name="format-detection" content="telephone=no, date=no, address=no, email=no, url=no">
-    <meta name="color-scheme" content="light only">
-    <meta name="supported-color-schemes" content="light only">
+    <meta name="color-scheme" content="light dark">
+    <meta name="supported-color-schemes" content="light dark">
     <title>Your {{verification_type}} code: {{otp_code}}</title>
     <style>
         /* Resets */
@@ -60,7 +60,46 @@
             }
         }
 
-        /* Light only: no dark-mode overrides, so the background stays white */
+        /* Dark mode (hybrid): clients that honor prefers-color-scheme (Apple Mail,
+           iOS Mail, Gmail, Yahoo, Outlook.com) get the palette below; clients that
+           don't (Outlook desktop) keep the light inline styles. */
+        @media only screen and (prefers-color-scheme: dark) {
+            body,
+            .bg-page {
+                background-color: #0b1220 !important;
+            }
+
+            .bg-card {
+                background-color: #0b1220 !important;
+            }
+
+            .bg-panel {
+                background-color: #131c2e !important;
+                border-color: #263450 !important;
+            }
+
+            .tile {
+                background-color: #0b1220 !important;
+                border-color: #1e40af !important;
+                color: #93c5fd !important;
+            }
+
+            .divider {
+                border-color: #263450 !important;
+            }
+
+            .t-main {
+                color: #e7edf8 !important;
+            }
+
+            .t-muted {
+                color: #94a3b8 !important;
+            }
+
+            .t-ok {
+                color: #5eead4 !important;
+            }
+        }
     </style>
 </head>
 
