@@ -1,15 +1,24 @@
 from typing import Any
 
+from django.db.models import Q
+
 from apps.audits.models import AuditLogs
 from apps.reports.models import HazardReports
 from apps.accounts.models import Users, Roles
+from apps.audits.exceptions.audit_log_exception import AuditLogNotFoundException
+from shared.results import DomainResult
+from shared.authorization import AllPermissions
+from shared.authorization.service import AuthorizationService
 
 
 class AuditLogService:
+    ActionType = AuditLogs.ActionType
+    ModuleType = AuditLogs.ModuleType
+
     @staticmethod
     def _log(
             *,
-            user_id: int|None,
+            actor_id: int|None,
             action: AuditLogs.ActionType,
             module: AuditLogs.ModuleType,
             description: str,
@@ -17,7 +26,7 @@ class AuditLogService:
             target_object: HazardReports|Users|Roles
     ) -> None:
         AuditLogs.objects.create(
-            user_id=user_id,
+            user_id=actor_id,
             action=action,
             module=module,
             description=description,
@@ -28,20 +37,20 @@ class AuditLogService:
     @staticmethod
     def log_create(
             *,
-            user: Users,
+            actor: Users,
             module: AuditLogs.ModuleType,
-            payload: dict[str, Any]|None=None,
             target_object: HazardReports|Users|Roles,
             target_identifier: int|str,
+            payload: dict[str, Any]|None=None,
             description_override: str|None=None
     ) -> None:
         description = description_override
 
         if not description:
-            description = f"{module.value} {target_identifier} was created by {user.user_number}"
+            description = f"{module.value} {target_identifier} was created by {actor.user_number}"
 
         AuditLogService._log(
-            user_id=user.user_id,
+            actor_id=actor.user_id,
             action=AuditLogs.ActionType.CREATE,
             module=module,
             description=description,
@@ -52,7 +61,7 @@ class AuditLogService:
     @staticmethod
     def log_update(
             *,
-            user: Users,
+            actor: Users,
             module: AuditLogs.ModuleType,
             target_object: Users|Roles,
             description: str,
@@ -60,7 +69,7 @@ class AuditLogService:
     ) -> None:
 
         AuditLogService._log(
-            user_id=user.user_id,
+            actor_id=actor.user_id,
             action=AuditLogs.ActionType.UPDATE,
             module=module,
             description=description,
@@ -71,7 +80,7 @@ class AuditLogService:
     @staticmethod
     def log_deactivate(
             *,
-            user: Users,
+            actor: Users,
             module: AuditLogs.ModuleType,
             deactivated_user: Users,
             reason: str,
@@ -86,11 +95,11 @@ class AuditLogService:
 
         if not description:
             description = (
-                f"{deactivated_user_number} ({deactivated_user_role_name}) was deactivated by {user.user_number}"
+                f"{deactivated_user_number} ({deactivated_user_role_name}) was deactivated by {actor.user_number}"
             ) + f" with the reason: \"{reason}\""
 
         AuditLogService._log(
-            user_id=user.user_id,
+            actor_id=actor.user_id,
             action=AuditLogs.ActionType.DEACTIVATE,
             module=module,
             description=description,
@@ -101,7 +110,7 @@ class AuditLogService:
     @staticmethod
     def log_report_status_change(
             *,
-            user: Users|None,
+            actor: Users|None,
             old_status: str,
             new_status: str,
             remarks: str|None=None,
@@ -122,17 +131,17 @@ class AuditLogService:
             }
 
         if not description:
-            actor = user.user_number if user else 'System'
+            actor_str = actor.user_number if actor else 'the System'
             description_remarks = f" with the remarks: \"{remarks}\"" if remarks else ""
 
             old_status = old_status.upper()
             new_status = new_status.upper()
             description = (
-                f"REPORT {report.report_number} status was changed from {old_status} to {new_status} by {actor}"
+                f"REPORT {report.report_number} status was changed from {old_status} to {new_status} by {actor_str}"
             ) + description_remarks
 
         AuditLogService._log(
-            user_id=user.user_id if user else None,
+            actor_id=actor.user_id if actor else None,
             action=AuditLogs.ActionType.STATUS_CHANGE,
             module=AuditLogs.ModuleType.REPORT,
             description=description,
@@ -143,7 +152,7 @@ class AuditLogService:
     @staticmethod
     def log_report_severity_change(
             *,
-            user: Users,
+            actor: Users,
             old_severity: str,
             new_severity: str,
             report: HazardReports,
@@ -159,17 +168,102 @@ class AuditLogService:
             }
 
         if not description:
-            actor = user.user_number
+            actor = actor.user_number
 
             description = (
                 f"REPORT {report.report_number} severity was changed from {old_severity} to {new_severity} by {actor}"
             )
 
         AuditLogService._log(
-            user_id=user.user_id,
+            actor_id=actor.user_id,
             action=AuditLogs.ActionType.SEVERITY_CHANGE,
             module=AuditLogs.ModuleType.REPORT,
             description=description,
             payload=payload,
             target_object=report
         )
+
+    @staticmethod
+    def _authorized_audit_logs(user: Users):
+        allowed_modules = []
+        if AuthorizationService.has_perm(user, AllPermissions.AUDITS.READ_SYSTEM_LOGS):
+            allowed_modules.extend([
+                module.value
+                for module in AuditLogs.ModuleType.get_system_modules()
+            ])
+
+        if AuthorizationService.has_perm(user, AllPermissions.AUDITS.READ_REPORT_LOGS):
+            allowed_modules.extend([
+                module.value
+                for module in AuditLogs.ModuleType.get_report_modules()
+            ])
+
+        queryset = AuditLogs.objects.filter(module__in=allowed_modules)
+
+        return queryset
+
+    @staticmethod
+    def list_authorized_audit_logs(
+            *,
+            user: Users,
+            query_filters: dict[str, Any]
+    ) -> DomainResult[AuditLogs]:
+        authorized_audit_logs = AuditLogService._authorized_audit_logs(user)
+
+        queryset = authorized_audit_logs.select_related(
+            "user",
+            "user__role"
+        )
+
+        filter_map = {
+            "module": "module",
+            "from_date": "created_at__date__gte",
+            "to_date": "created_at__date__lte",
+        }
+
+        filters = {
+            filter_map[field]: value
+            for field, value in query_filters.items()
+            if field in filter_map and value is not None
+        }
+
+        if filters:
+            queryset = queryset.filter(**filters)
+
+        role_id: int|None = query_filters.get("role_id")
+        if role_id is not None:
+            if role_id == 0:
+                queryset = queryset.filter(user__isnull=True)
+            else:
+                queryset = queryset.filter(user__role__role_id=role_id)
+
+        search_query: str|None = query_filters.get("q")
+        if search_query:
+            search_query = search_query.strip()
+
+            queryset = queryset.filter(
+                Q(audit_log_number__icontains=search_query) |
+                Q(user__user_number__icontains=search_query)
+            )
+
+        return DomainResult.success(queryset.order_by("-created_at"))
+
+    @staticmethod
+    def get_authorized_audit_log(
+            *,
+            user: Users,
+            audit_log_number: str
+    ) -> DomainResult[AuditLogs]:
+        authorized_audit_logs = AuditLogService._authorized_audit_logs(user)
+
+        audit_log = authorized_audit_logs.filter(
+            audit_log_number__iexact=audit_log_number
+        ).select_related(
+            "user",
+            "user__role"
+        ).first()
+
+        if not audit_log:
+            raise AuditLogNotFoundException()
+
+        return DomainResult.success(audit_log)

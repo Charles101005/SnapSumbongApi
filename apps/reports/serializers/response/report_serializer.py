@@ -1,7 +1,6 @@
 from typing import Any
 from decimal import Decimal
 
-from django.contrib.auth.models import AbstractUser
 from rest_framework import serializers
 
 from apps.reports.models import HazardReports

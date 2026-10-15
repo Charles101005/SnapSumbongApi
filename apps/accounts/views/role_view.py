@@ -43,6 +43,7 @@ class RoleListView(APIView):
 
         validated_data = serializer.validated_data
         result = RoleService.create_role(
+            actor=request.user,
             role_name=validated_data['role_name'],
             description=validated_data['description'],
             permission_names=validated_data['permission_names'],

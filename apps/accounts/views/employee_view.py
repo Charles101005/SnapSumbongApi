@@ -49,6 +49,7 @@ class EmployeeListView(APIView):
 
         validated_data = serializer.validated_data
         result = UserService.create_staff(
+            actor=request.user,
             email=validated_data["email"],
             role_id=validated_data["role_id"],
             last_name=validated_data["last_name"],

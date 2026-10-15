@@ -9,6 +9,7 @@ from .clients import ResendClient
 
 class EmailService:
     _client = ResendClient()
+    _app_name = "SnapSumbong"
 
     @classmethod
     def _compile_and_send(
@@ -36,11 +37,19 @@ class EmailService:
             cls,
             *,
             to_email: str,
+            to_first_name: str,
             otp_code: str,
+            expiry_minutes: str|int
     ) -> bool:
         return cls._compile_and_send(
             to_emails=[to_email],
-            subject="Activate Your Account",
+            subject="",
             template_path="verification_otp.html",
-            context={"otp_code": otp_code}
+            context={
+                "verification_type": "Registration",
+                "otp_code": otp_code,
+                "expiry_minutes": expiry_minutes,
+                "first_name": to_first_name,
+                "app_name": cls._app_name,
+            }
         )

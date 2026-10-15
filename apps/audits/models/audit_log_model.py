@@ -19,6 +19,20 @@ class AuditLogs(models.Model):
         ROLE = "ROLE", "Role"
         REPORT = "REPORT", "Report"
 
+        @classmethod
+        def get_system_modules(cls) -> list:
+            return [
+                cls.USER,
+                cls.EMPLOYEE,
+                cls.ROLE,
+            ]
+
+        @classmethod
+        def get_report_modules(cls) -> list:
+            return [
+                cls.REPORT,
+            ]
+
 
     audit_log_id = models.BigAutoField(primary_key=True)
 

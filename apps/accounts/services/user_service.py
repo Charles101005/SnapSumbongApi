@@ -12,6 +12,7 @@ from django.conf import settings
 
 from apps.accounts.models.role_model import Roles
 from apps.accounts.models.user_model import Users
+from apps.audits.services import AuditLogService
 from apps.accounts.exceptions.role_exception import SystemCitizenRoleMissingException, RoleNotFoundException
 from apps.accounts.domain_errors.user_error import (
     UserNotFoundError,
@@ -75,8 +76,10 @@ class UserService:
 
 
     @staticmethod
+    @transaction.atomic
     def create_staff(
             *,
+            actor: Users,
             email: str,
             role_id: int,
             last_name: str,
@@ -117,6 +120,20 @@ class UserService:
             barangay_code=barangay_code
         )
 
+        AuditLogService.log_create(
+            actor=actor,
+            module=AuditLogService.ModuleType.EMPLOYEE,
+            target_object=user,
+            target_identifier=user.user_number,
+            payload={
+                "assigned_role": {
+                    "role_id": staff_role.role_id,
+                    "role_code": staff_role.role_code,
+                    "role_name": staff_role.role_name,
+                }
+            }
+        )
+
         #TODO: SnapSumbong - Email the password in a transaction on-commit
         print("Password:", temp_password)
 
@@ -135,7 +152,7 @@ class UserService:
 
         user.password = make_password(new_password)
 
-        user.save(update_fields=['password'])
+        user.save(update_fields=["password", "updated_at"])
 
         return DomainResult.success(user)
 
@@ -176,7 +193,7 @@ class UserService:
     ) -> DomainResult[None]:
         if user.check_password(current_password):
             user.password = make_password(new_password)
-            user.save(update_fields=['password'])
+            user.save(update_fields=["password", "updated_at"])
 
             AuthService.revoke_other_refresh_tokens(
                 user=user,
@@ -191,7 +208,7 @@ class UserService:
     def deactivate_account(user: Users) -> DomainResult[None]:
         if user.is_active:
             user.is_active = False
-            user.save(update_fields=['is_active'])
+            user.save(update_fields=["is_active", "updated_at"])
 
         return DomainResult.success(None)
 
@@ -208,7 +225,9 @@ class UserService:
                 setattr(user, field, value)
                 updated_fields.append(field)
 
-            user.save(update_fields=updated_fields)
+            if updated_fields:
+                updated_fields.append("updated_at")
+                user.save(update_fields=updated_fields)
 
         return DomainResult.success(None)
 
@@ -356,6 +375,7 @@ class UserService:
             updated_fields.append("role_id")
 
         if updated_fields:
+            updated_fields.append("updated_at")
             user.save(update_fields=updated_fields)
 
         return DomainResult.success(None)
@@ -388,6 +408,7 @@ class UserService:
             updated_fields.append("is_active")
 
         if updated_fields:
+            updated_fields.append("updated_at")
             user.save(update_fields=updated_fields)
 
         return DomainResult.success(None)

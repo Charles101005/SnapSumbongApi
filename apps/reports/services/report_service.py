@@ -27,7 +27,6 @@ from apps.reports.domain_errors.report_error import (
 )
 from apps.accounts.services import UserService
 from apps.audits.services import AuditLogService
-from apps.audits.models import AuditLogs
 from shared.authorization.service import AuthorizationService
 from shared.authorization import AllPermissions
 
@@ -63,7 +62,7 @@ class ReportService:
             ])
 
             AuditLogService.log_report_status_change(
-                user=None,
+                actor=None,
                 old_status=old_status.label,
                 new_status=report.status.label,
                 report=report
@@ -181,14 +180,14 @@ class ReportService:
             report.images.create(image_url=image_url)
 
         AuditLogService.log_create(
-            user=report.reported_by,
-            module=AuditLogs.ModuleType.REPORT,
+            actor=report.reported_by,
+            module=AuditLogService.ModuleType.REPORT,
+            target_object=report,
+            target_identifier=report.report_number,
             payload={
                 "initial_status": report.status.label,
                 "assigned_to": assigned_staff.email if assigned_staff else None,
             },
-            target_object=report,
-            target_identifier=report.report_number
         )
 
         return DomainResult.success(report)
@@ -325,7 +324,7 @@ class ReportService:
                     return DomainResult.error(StatusResolutionImageConflictError)
 
             AuditLogService.log_report_status_change(
-                user=user,
+                actor=user,
                 old_status=old_status.label,
                 new_status=report.status.label,
                 remarks=remarks,
@@ -341,7 +340,7 @@ class ReportService:
             updated_fields.append("severity")
 
             AuditLogService.log_report_severity_change(
-                user=user,
+                actor=user,
                 old_severity=old_severity,
                 new_severity=report.severity,
                 report=report

@@ -7,6 +7,8 @@ from django.db.models import Q
 
 from apps.accounts.models import Roles, Permissions
 from shared.results import DomainResult
+from apps.audits.services import AuditLogService
+from apps.accounts.models import Users
 from apps.accounts.exceptions.role_exception import (
     RoleNotFoundException,
     SystemProtectedRoleModificationDeniedException,
@@ -72,6 +74,7 @@ class RoleService:
     @transaction.atomic
     def create_role(
             *,
+            actor: Users,
             role_name: str,
             description: str,
             permission_names: list[str]
@@ -85,12 +88,28 @@ class RoleService:
         if valid_permissions.count() != len(set(permission_names)):
             return DomainResult.error(PermissionNotFoundError)
 
-        role = Roles.objects.create(
+        role: Roles = Roles.objects.create(
             role_name=cleaned_role_name,
             role_code=role_code,
             description=description,
         )
         role.permissions.set(valid_permissions)
+
+        AuditLogService.log_create(
+            actor=actor,
+            module=AuditLogService.ModuleType.ROLE,
+            target_object=role,
+            target_identifier=f"{role.role_code}({role.role_id})",
+            payload={
+                "role_details": {
+                    "role_id": role.role_id,
+                    "role_code": role.role_code,
+                    "role_name": role.role_name,
+                    "description": role.description,
+                },
+                "initial_permissions": list(valid_permissions.values_list("permission_name", flat=True)),
+            }
+        )
 
         return DomainResult.success(role)
 

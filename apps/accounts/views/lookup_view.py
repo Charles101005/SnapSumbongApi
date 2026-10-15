@@ -16,6 +16,8 @@ from apps.accounts.serializers.response.lookup_serializer import LookupRolesResp
     AllPermissions.EMPLOYEES.CREATE,
     AllPermissions.EMPLOYEES.READ_ALL,
     AllPermissions.EMPLOYEES.ASSIGN_ROLE,
+    AllPermissions.AUDITS.READ_SYSTEM_LOGS,
+    AllPermissions.AUDITS.READ_REPORT_LOGS,
 )
 def lookup_roles_view(request: Request) -> Response:
     result = RoleService.list_roles_for_lookup()
