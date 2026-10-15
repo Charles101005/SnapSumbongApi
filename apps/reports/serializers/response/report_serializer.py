@@ -3,8 +3,19 @@ from decimal import Decimal
 
 from rest_framework import serializers
 
-from apps.reports.models import HazardReports
+from apps.reports.models import HazardReports, ReportImages
 from apps.audits.models import AuditLogs
+
+
+def _staff_display_name(user) -> dict[str, str] | None:
+    if not user:
+        return None
+
+    middle_name = f" {user.middle_name[0].upper()}." if user.middle_name else ""
+    return {
+        "email": user.email,
+        "name": f"{user.last_name}, {user.first_name}{middle_name}",
+    }
 
 
 class _ImageSignatureSerializer(serializers.Serializer):
@@ -34,6 +45,10 @@ class GetReportListResponseSerializer(serializers.Serializer):
     category = serializers.SerializerMethodField()
     status = serializers.SerializerMethodField()
     created_at = serializers.DateTimeField()
+
+    #DO 47 SLA (visible to both staff and citizens)
+    due_at = serializers.DateTimeField(allow_null=True)
+    is_overdue = serializers.BooleanField()
 
     #staff only
     severity = serializers.CharField(min_length=2, max_length=2)
@@ -78,7 +93,18 @@ class GetReportDetailResponseSerializer(serializers.Serializer):
     description = serializers.CharField()
     remarks = serializers.CharField()
 
+    #DO 47 SLA (visible to both staff and citizens)
+    due_at = serializers.DateTimeField(allow_null=True)
+    is_overdue = serializers.BooleanField()
+
+    #Citizen confirmation marker (visible to both): set when the reporter
+    #closed the report; null on staff force-closes or non-closed reports.
+    confirmed_at = serializers.DateTimeField(allow_null=True)
+
     image_urls = serializers.SerializerMethodField()
+
+    #DO 47 photolog: grouped Before/During/After photos (visible to both)
+    photos = serializers.SerializerMethodField()
 
     #non-staff only
     status_timeline = serializers.SerializerMethodField()
@@ -87,6 +113,9 @@ class GetReportDetailResponseSerializer(serializers.Serializer):
 
     #staff only
     reported_by = serializers.SerializerMethodField()
+    assigned_to = serializers.SerializerMethodField()
+    validated_by_name = serializers.CharField(allow_null=True)
+    validated_by = serializers.SerializerMethodField()
     category = serializers.SerializerMethodField()
     severity = serializers.CharField()
     created_at = serializers.DateTimeField()
@@ -105,14 +134,34 @@ class GetReportDetailResponseSerializer(serializers.Serializer):
 
         return "<Anonymous>"
 
+    def get_assigned_to(self, value) -> dict | None:
+        return _staff_display_name(value.assigned_to)
+
+    def get_validated_by(self, value) -> dict | None:
+        return _staff_display_name(value.validated_by)
+
     def get_category(self, value) -> str:
         return value.category.hazard_name
 
     def get_image_urls(self, value) -> list:
-        return [image.image_url for image in value.images.all() if image.is_resolution is False]
+        return [
+            image.image_url
+            for image in value.images.all()
+            if image.photo_type == ReportImages.PhotoType.BEFORE
+        ]
 
     def get_resolution_image_urls(self, value) -> list:
-        return [image.image_url for image in value.images.all() if image.is_resolution is True]
+        return [
+            image.image_url
+            for image in value.images.all()
+            if image.photo_type in (ReportImages.PhotoType.DURING, ReportImages.PhotoType.AFTER)
+        ]
+
+    def get_photos(self, value) -> dict:
+        photos: dict[str, list[str]] = {"before": [], "during": [], "after": []}
+        for image in value.images.all():
+            photos[image.photo_type.lower()].append(image.image_url)
+        return photos
 
     def get_status_timeline(self, value) -> list:
         audit_logs = [
@@ -138,11 +187,15 @@ class GetReportDetailResponseSerializer(serializers.Serializer):
 
         if user and user.is_staff:
             data.pop("status_timeline", None)
-            data.pop("next_expected_statuses", None)
+            # next_expected_statuses is kept for staff: the report management
+            # modal restricts its status dropdown to the transition matrix.
             data.pop("resolution_image_urls", None)
 
         else:
             data.pop("reported_by", None)
+            data.pop("assigned_to", None)
+            data.pop("validated_by_name", None)
+            data.pop("validated_by", None)
             data.pop("category", None)
             data.pop("severity", None)
             data.pop("created_at", None)
@@ -171,10 +224,18 @@ class GetReportHistoryDetailResponseSerializer(serializers.Serializer):
         return value.category.hazard_name
 
     def get_image_urls(self, value) -> list[str]:
-        return [image.image_url for image in value.images.all() if image.is_resolution is False]
+        return [
+            image.image_url
+            for image in value.images.all()
+            if image.photo_type == ReportImages.PhotoType.BEFORE
+        ]
 
     def get_resolution_image_urls(self, value) -> list[str]:
-        return [image.image_url for image in value.images.all() if image.is_resolution is True]
+        return [
+            image.image_url
+            for image in value.images.all()
+            if image.photo_type in (ReportImages.PhotoType.DURING, ReportImages.PhotoType.AFTER)
+        ]
 
     def get_status_timeline(self, value) -> list[dict[str, Any]]:
         audit_logs = [

@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils import timezone
 from django.contrib.contenttypes.fields import GenericRelation
 
 from .hazard_category_model import HazardCategories
@@ -7,6 +8,23 @@ from shared.utils import model_number_generator
 
 class HazardReportManager(models.Manager):
     pass
+
+
+# UI transition matrix. Closed is a destination the process arrives at, not
+# a shortcut: verification (Under Review) must come first, early-phase
+# reports close only via On-Hold (referred out), and completed works close
+# only via Resolved. The backend stays permissive; this map feeds
+# HazardReports.Status.get_next_expected_statuses, which the staff modal
+# uses to restrict its status dropdown.
+STATUS_ALLOWED_TRANSITIONS = {
+    'NEW': ('UNDER_REVIEW',),
+    'ASSIGNED': ('UNDER_REVIEW',),
+    'UNDER_REVIEW': ('ON_HOLD', 'DISPATCHED'),
+    'ON_HOLD': ('UNDER_REVIEW', 'DISPATCHED', 'CLOSED'),
+    'DISPATCHED': ('RESOLVED', 'ON_HOLD'),
+    'RESOLVED': ('CLOSED',),
+    'CLOSED': (),
+}
 
 
 class HazardReports(models.Model):
@@ -32,7 +50,7 @@ class HazardReports(models.Model):
 
         # Phase 4: Resolution and Closure
         RESOLVED = 'RESOLVED', 'Resolved' #'Issue is solved but needs user verification'
-        CLOSED = 'CLOSED', 'Closed' #'Automatically or manually closed' #
+        CLOSED = 'CLOSED', 'Closed' #'Closed by reporter confirmation, or force-closed by staff (e.g. out of DO 47 jurisdiction)' #
 
         @property
         def phase(self) -> int:
@@ -51,15 +69,6 @@ class HazardReports(models.Model):
             return phase_map[self]
 
         @classmethod
-        def get_main_statuses(cls) -> list:
-            return [
-                cls.ASSIGNED,
-                cls.UNDER_REVIEW,
-                cls.DISPATCHED,
-                cls.RESOLVED,
-            ]
-
-        @classmethod
         def get_mandatory_remarks_statuses(cls) -> list:
             return [
                 cls.ON_HOLD,
@@ -67,13 +76,9 @@ class HazardReports(models.Model):
             ]
 
         def get_next_expected_statuses(self) -> list:
-            current_phase = self.phase
-            main_statuses = self.get_main_statuses()
-
             return [
-                status.label
-                for status in main_statuses
-                if status.phase > current_phase
+                type(self)(value).label
+                for value in STATUS_ALLOWED_TRANSITIONS.get(self.value, ())
             ]
 
 
@@ -96,6 +101,21 @@ class HazardReports(models.Model):
         related_name="assigned_hazard_reports",
     )
 
+    # DO 47 s.2024 §2: the staff member who validated the completed
+    # rectification works. The resolving officer declares this name manually
+    # (typed into the resolve form); it may be any technical personnel,
+    # including the assigned handler.
+    validated_by_name = models.CharField(max_length=150, null=True, blank=True)
+
+    # The account that performed the resolve action in the system (audit).
+    validated_by = models.ForeignKey(
+        "apps_accounts.Users",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="validated_hazard_reports",
+    )
+
     category = models.ForeignKey(HazardCategories, on_delete=models.PROTECT, related_name="hazard_reports")
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.NEW, db_index=True)
     severity = models.CharField(max_length=2, choices=Severity.choices, null=True, blank=True, db_index=True)
@@ -109,8 +129,17 @@ class HazardReports(models.Model):
 
     remarks = models.TextField(blank=True, null=True)
 
+    # DO 47 s.2024 §4.1: due date = date noted + category response time.
+    # Null only for reports created before SLA tracking existed.
+    due_at = models.DateTimeField(null=True, blank=True, db_index=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
     resolved_at = models.DateTimeField(null=True)
+
+    # Set only when the reporter (citizen) confirms the completed works and
+    # the report moves RESOLVED -> CLOSED. A CLOSED report with a null
+    # confirmed_at was force-closed by staff (e.g. out of DO 47 jurisdiction).
+    confirmed_at = models.DateTimeField(null=True, blank=True)
 
     audit_logs = GenericRelation(
         "apps_audits.AuditLogs",
@@ -120,6 +149,14 @@ class HazardReports(models.Model):
 
 
     objects = HazardReportManager()
+
+    @property
+    def is_overdue(self) -> bool:
+        # Phase-4 statuses (RESOLVED, CLOSED) are never overdue.
+        if not self.due_at or HazardReports.Status(self.status).phase == 4:
+            return False
+
+        return timezone.now() > self.due_at
 
     def save(self, *args, **kwargs):
         if not self.report_number:

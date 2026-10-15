@@ -1,6 +1,7 @@
 import secrets
 from typing import Any
 from decimal import Decimal
+from datetime import timedelta
 
 from django.utils import timezone
 from django.db import transaction
@@ -10,7 +11,7 @@ from django.conf import settings
 from apps.accounts.models import Users
 from shared.results import DomainResult
 from external.storage import StorageService, UploadIntent
-from apps.reports.models import HazardReports, HazardCategories
+from apps.reports.models import HazardReports, HazardCategories, ReportImages
 from apps.reports.exceptions.report_exception import (
     InvalidImageCountException,
     InvalidHazardCategoryException,
@@ -24,6 +25,10 @@ from apps.reports.domain_errors.report_error import (
     StatusResolutionImageConflictError,
     MandatoryRemarksStatusError,
     ResolutionImageRequiredError,
+    MissingDuringPhotoError,
+    MissingAfterPhotoError,
+    ReportNotResolvedError,
+    ValidatorNameRequiredError,
 )
 from apps.accounts.services import UserService
 from apps.audits.services import AuditLogService
@@ -164,6 +169,11 @@ class ReportService:
         assigned_staff = ReportService._get_next_report_assigned_to()
         initial_status = HazardReports.Status.ASSIGNED if assigned_staff else HazardReports.Status.NEW
 
+        # DO 47 s.2024 §4.1: SLA clock starts when the defect is noted
+        # (i.e., report creation) and runs for the category's response time.
+        now = timezone.now()
+        due_at = now + timedelta(days=category.response_time_days)
+
         report: HazardReports = HazardReports.objects.create(
             reported_by_id=reported_by_id,
             assigned_to=assigned_staff,
@@ -173,11 +183,15 @@ class ReportService:
             address=address,
             description=description,
             status=initial_status,
-            is_anonymous=is_anonymous
+            is_anonymous=is_anonymous,
+            due_at=due_at,
         )
 
         for image_url in image_urls:
-            report.images.create(image_url=image_url)
+            report.images.create(
+                image_url=image_url,
+                photo_type=ReportImages.PhotoType.BEFORE,
+            )
 
         AuditLogService.log_create(
             actor=report.reported_by,
@@ -226,6 +240,15 @@ class ReportService:
         if filters:
             queryset = queryset.filter(**filters)
 
+        # DO 47 s.2024 §4.1: overdue = open (non-phase-4) report past its due date.
+        if query_filters.get("overdue"):
+            open_statuses = [status.value for status in HazardReports.Status if status.phase < 4]
+            queryset = queryset.filter(
+                status__in=open_statuses,
+                due_at__isnull=False,
+                due_at__lt=timezone.now(),
+            )
+
         search_query = query_filters.get("q")
         if search_query:
             search_query = search_query.strip()
@@ -249,7 +272,9 @@ class ReportService:
             report_number__iexact=report_number
         ).select_related(
             "reported_by",
-            "category"
+            "category",
+            "assigned_to",
+            "validated_by",
         ).prefetch_related(
             "images",
             "audit_logs",
@@ -273,7 +298,8 @@ class ReportService:
             new_status_str: str|None=None,
             new_severity_str: str|None=None,
             remarks: str|None=None,
-            resolution_image_urls: list[str]|None=None
+            resolution_images: list[dict]|None=None,
+            validated_by_name: str|None=None
     ) -> DomainResult[None]:
         authorized_reports = ReportService._authorized_reports(user=user)
 
@@ -287,7 +313,7 @@ class ReportService:
         new_severity_str = new_severity_str.strip().upper() if new_severity_str else None
         remarks = remarks.strip() if remarks else None
 
-        if (remarks and not new_status_str) or (resolution_image_urls and not new_status_str):
+        if (remarks and not new_status_str) or (resolution_images and not new_status_str):
             return DomainResult.error(InvalidReportUpdateError)
 
         if new_status_str:
@@ -308,19 +334,45 @@ class ReportService:
             updated_fields.append("remarks")
 
             if new_status_str == HazardReports.Status.RESOLVED:
-                if not resolution_image_urls:
+                # DO 47 s.2024 Appendix A-8: the Documentation Photolog must
+                # show the rectification as During (works in progress) and
+                # After (completed) photos. Before photos come from the
+                # citizen's original submission.
+                if not resolution_images:
                     return DomainResult.error(ResolutionImageRequiredError)
+
+                photo_types = {image["photo_type"] for image in resolution_images}
+
+                if ReportImages.PhotoType.DURING not in photo_types:
+                    return DomainResult.error(MissingDuringPhotoError)
+
+                if ReportImages.PhotoType.AFTER not in photo_types:
+                    return DomainResult.error(MissingAfterPhotoError)
+
+                # DO 47 s.2024 §2: the resolving officer declares the name of
+                # the technical personnel who validated the completed works.
+                # The assigned handler may resolve their own report as long
+                # as this name is recorded (any name is accepted).
+                validated_by_name = (validated_by_name or "").strip()
+                if not validated_by_name:
+                    return DomainResult.error(ValidatorNameRequiredError)
+
+                report.validated_by_name = validated_by_name
+                updated_fields.append("validated_by_name")
+
+                report.validated_by = user
+                updated_fields.append("validated_by")
 
                 report.resolved_at = timezone.now()
                 updated_fields.append("resolved_at")
 
-                for resolution_image_url in resolution_image_urls:
+                for image in resolution_images:
                     report.images.create(
-                        image_url=resolution_image_url,
-                        is_resolution=True
+                        image_url=image["image_url"],
+                        photo_type=image["photo_type"],
                     )
             else:
-                if resolution_image_urls:
+                if resolution_images:
                     return DomainResult.error(StatusResolutionImageConflictError)
 
             AuditLogService.log_report_status_change(
@@ -348,6 +400,39 @@ class ReportService:
 
         if updated_fields:
             report.save(update_fields=updated_fields)
+
+        return DomainResult.success(None)
+
+    @staticmethod
+    @transaction.atomic
+    def confirm_report_resolution(*, user: Users, report_number: str) -> DomainResult[None]:
+        # Citizen confirmation path to CLOSED: only the reporter can close
+        # their own report, and only after it has been resolved (works done
+        # + DO 47 validation). Staff force-closing (e.g. out of DO 47
+        # jurisdiction) goes through update_authorized_assigned_report
+        # instead and leaves confirmed_at null.
+        report = HazardReports.objects.filter(
+            reported_by_id=user.user_id,
+            report_number__iexact=report_number,
+        ).first()
+        if not report:
+            raise ReportDoesNotExistException()
+
+        if report.status != HazardReports.Status.RESOLVED:
+            return DomainResult.error(ReportNotResolvedError)
+
+        old_status = HazardReports.Status(report.status)
+        report.status = HazardReports.Status.CLOSED
+        report.confirmed_at = timezone.now()
+        report.save(update_fields=["status", "confirmed_at"])
+
+        AuditLogService.log_report_status_change(
+            user=user,
+            old_status=old_status.label,
+            new_status=report.status.label,
+            remarks="Resolution confirmed by the reporter.",
+            report=report,
+        )
 
         return DomainResult.success(None)
 

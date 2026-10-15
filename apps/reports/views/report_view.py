@@ -92,6 +92,19 @@ class ReportListView(APIView):
         )
 
 
+class ReportConfirmResolutionView(APIView):
+    @require_perm(AllPermissions.REPORTS.UPDATE_OWN)
+    def post(self, request: Request, report_number: str) -> Response:
+        result = ReportService.confirm_report_resolution(
+            user=request.user,
+            report_number=report_number,
+        )
+
+        return DomainResultResponse(result).respond(
+            success_status_code=status.HTTP_200_OK,
+        )
+
+
 class ReportDetailView(APIView):
     @require_any_perms(
         AllPermissions.REPORTS.READ_ALL,
@@ -119,7 +132,8 @@ class ReportDetailView(APIView):
             new_status_str=validated_data.get("status"),
             new_severity_str=validated_data.get("severity"),
             remarks=validated_data.get("remarks"),
-            resolution_image_urls=validated_data.get("resolution_image_urls")
+            resolution_images=validated_data.get("resolution_images"),
+            validated_by_name=validated_data.get("validated_by_name")
         )
 
         return DomainResultResponse(result).respond(

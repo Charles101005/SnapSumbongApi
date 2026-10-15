@@ -27,8 +27,32 @@ ResolutionImageRequiredError = DomainError(
     error_code="RESOLUTION_IMAGE_REQUIRED",
 )
 
+MissingDuringPhotoError = DomainError(
+    detail="The photolog requires at least one 'During' photo of the rectification works.",
+    status_code=status.HTTP_400_BAD_REQUEST,
+    error_code="MISSING_DURING_PHOTO",
+)
+
+MissingAfterPhotoError = DomainError(
+    detail="The photolog requires at least one 'After' photo of the completed rectification.",
+    status_code=status.HTTP_400_BAD_REQUEST,
+    error_code="MISSING_AFTER_PHOTO",
+)
+
 MandatoryRemarksStatusError = DomainError(
     detail="A detailed remark is required when moving a report to this status.",
     status_code=status.HTTP_400_BAD_REQUEST,
     error_code="MANDATORY_REMARKS_STATUS",
+)
+
+ReportNotResolvedError = DomainError(
+    detail="Only reports with resolved status can be confirmed by the reporter.",
+    status_code=status.HTTP_409_CONFLICT,
+    error_code="CONFIRMATION_NOT_RESOLVED",
+)
+
+ValidatorNameRequiredError = DomainError(
+    detail="The name of the DO 47 validator is required when transitioning to resolved status.",
+    status_code=status.HTTP_400_BAD_REQUEST,
+    error_code="VALIDATOR_NAME_REQUIRED",
 )

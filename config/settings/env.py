@@ -1,3 +1,4 @@
+from datetime import date
 from pathlib import Path
 from dotenv import load_dotenv
 import os
@@ -39,3 +40,11 @@ if "runserver" in sys.argv:
     COOKIE_DOMAIN: str|None = None
 else:
     COOKIE_DOMAIN: str = os.environ["COOKIE_DOMAIN"]
+
+# DO 47 s.2024 compliance scoring: reports created before this date predate
+# the SLA/photolog/validation obligations, so they are counted for activity
+# but exempt from all scoring components. Override in .env with the date the
+# DO 47 rules went live in this deployment (ISO format, e.g. 2025-06-01).
+DO47_COMPLIANCE_SINCE: date = date.fromisoformat(
+    os.getenv("DO47_COMPLIANCE_SINCE", "2024-04-08")
+)
