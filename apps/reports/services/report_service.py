@@ -427,7 +427,7 @@ class ReportService:
         report.save(update_fields=["status", "confirmed_at"])
 
         AuditLogService.log_report_status_change(
-            user=user,
+            actor=user,
             old_status=old_status.label,
             new_status=report.status.label,
             remarks="Resolution confirmed by the reporter.",

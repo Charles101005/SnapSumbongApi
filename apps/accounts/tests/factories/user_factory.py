@@ -3,6 +3,8 @@ from django.contrib.auth.hashers import make_password
 
 from apps.accounts.models import Users
 
+from .role_factory import RoleFactory
+
 
 TEST_PASSWORD = 'Password2005'
 
@@ -23,3 +25,5 @@ class UserFactory(factory.django.DjangoModelFactory):
 
     email = factory.Sequence(lambda n: f'email{n}@email.com')
     password = factory.LazyFunction(lambda: make_password(TEST_PASSWORD))
+
+    role = factory.SubFactory(RoleFactory)
