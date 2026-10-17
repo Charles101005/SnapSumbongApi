@@ -64,7 +64,7 @@ def rate_limit(
             config,
             rate=rate,
             period=period,
-            scope=scope or f"{func.__module__}.{func.__name__}",
+            scope=scope or f"{func.__module__}.{getattr(func, '__qualname__', func.__name__)}",
         )
 
         @wraps(func)
