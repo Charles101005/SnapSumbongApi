@@ -70,7 +70,7 @@ class ModerationService:
         )
 
         AuditLogService.log_warning(
-            user=actor,
+            actor=actor,
             warned_user=citizen,
             reason=reason,
             warning_number=warning.warning_number,
@@ -122,7 +122,7 @@ class ModerationService:
         citizen.save(update_fields=["is_active"])
 
         AuditLogService.log_ban(
-            user=actor,
+            actor=actor,
             banned_user=citizen,
             reason=reason,
             fast_track_report_number=report_number if warning_count < BAN_WARNING_THRESHOLD else None,
@@ -149,7 +149,7 @@ class ModerationService:
         citizen.save(update_fields=["is_active"])
 
         AuditLogService.log_unban(
-            user=actor,
+            actor=actor,
             unbanned_user=citizen,
             reason=reason,
         )
