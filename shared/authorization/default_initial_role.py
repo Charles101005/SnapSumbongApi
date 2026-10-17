@@ -44,6 +44,8 @@ class AllDefaultRoles:
 
             AllPermissions.AUDITS.READ_REPORT_LOGS,
             AllPermissions.AUDITS.READ_SYSTEM_LOGS,
+
+            AllPermissions.USERS.WARN,
         ),
         mandatory_permissions=(
             AllPermissions.ROLES.READ_ALL.name,
@@ -62,6 +64,7 @@ class AllDefaultRoles:
 
             AllPermissions.USERS.READ_OWN,
             AllPermissions.USERS.UPDATE_OWN,
+            AllPermissions.USERS.READ_ALL,
 
             AllPermissions.EMPLOYEES.READ_HANDLERS,
 
@@ -70,6 +73,8 @@ class AllDefaultRoles:
             AllPermissions.ANALYTICS.READ_DASHBOARD,
 
             AllPermissions.AUDITS.READ_REPORT_LOGS,
+
+            AllPermissions.USERS.WARN,
         )
     )
 

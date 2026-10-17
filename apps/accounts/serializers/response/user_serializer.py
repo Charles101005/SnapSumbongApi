@@ -22,6 +22,7 @@ class UserListResponseSerializer(serializers.Serializer):
     role = serializers.CharField(source='role.role_name')
     is_active = serializers.BooleanField()
     last_active = serializers.DateTimeField()
+    warning_count = serializers.IntegerField(default=0, required=False)
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
@@ -55,6 +56,7 @@ class UserDetailResponseSerializer(serializers.Serializer):
     role_id = serializers.IntegerField()
 
     is_active = serializers.BooleanField()
+    warning_count = serializers.IntegerField(default=0, required=False)
 
     last_active = serializers.DateTimeField()
     created_at = serializers.DateTimeField()

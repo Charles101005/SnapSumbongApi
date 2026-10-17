@@ -108,6 +108,74 @@ class AuditLogService:
         )
 
     @staticmethod
+    def log_warning(
+            *,
+            user: Users,
+            warned_user: Users,
+            reason: str,
+            warning_number: str,
+            report_number: str|None=None,
+    ) -> None:
+        description = (
+            f"{warned_user.user_number} was issued a warning by {user.user_number}"
+            f" with the reason: \"{reason}\""
+        )
+        if report_number:
+            description += f" (linked report: {report_number})"
+
+        AuditLogService._log(
+            user_id=user.user_id,
+            action=AuditLogs.ActionType.WARNING,
+            module=AuditLogs.ModuleType.USER,
+            description=description,
+            payload={"warning_number": warning_number, "reason": reason, "report_number": report_number},
+            target_object=warned_user
+        )
+
+    @staticmethod
+    def log_ban(
+            *,
+            user: Users,
+            banned_user: Users,
+            reason: str,
+            fast_track_report_number: str|None=None,
+    ) -> None:
+        description = (
+            f"{banned_user.user_number} ({banned_user.role.role_name}) was banned by {user.user_number}"
+            f" with the reason: \"{reason}\""
+        )
+        if fast_track_report_number:
+            description += f" (fast-track evidence: {fast_track_report_number})"
+
+        AuditLogService._log(
+            user_id=user.user_id,
+            action=AuditLogs.ActionType.BAN,
+            module=AuditLogs.ModuleType.USER,
+            description=description,
+            payload={"reason": reason, "fast_track_report_number": fast_track_report_number},
+            target_object=banned_user
+        )
+
+    @staticmethod
+    def log_unban(
+            *,
+            user: Users,
+            unbanned_user: Users,
+            reason: str,
+    ) -> None:
+        AuditLogService._log(
+            user_id=user.user_id,
+            action=AuditLogs.ActionType.UNBAN,
+            module=AuditLogs.ModuleType.USER,
+            description=(
+                f"{unbanned_user.user_number} ({unbanned_user.role.role_name}) was unbanned by {user.user_number}"
+                f" with the reason: \"{reason}\""
+            ),
+            payload={"reason": reason},
+            target_object=unbanned_user
+        )
+
+    @staticmethod
     def log_report_status_change(
             *,
             actor: Users|None,

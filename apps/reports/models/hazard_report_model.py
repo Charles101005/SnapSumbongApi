@@ -13,17 +13,20 @@ class HazardReportManager(models.Manager):
 # UI transition matrix. Closed is a destination the process arrives at, not
 # a shortcut: verification (Under Review) must come first, early-phase
 # reports close only via On-Hold (referred out), and completed works close
-# only via Resolved. The backend stays permissive; this map feeds
+# only via Resolved. Invalid is a moderation override reachable from any
+# non-terminal status (fake/troll reports must be closeable at any stage).
+# The backend stays permissive; this map feeds
 # HazardReports.Status.get_next_expected_statuses, which the staff modal
 # uses to restrict its status dropdown.
 STATUS_ALLOWED_TRANSITIONS = {
-    'NEW': ('UNDER_REVIEW',),
-    'ASSIGNED': ('UNDER_REVIEW',),
-    'UNDER_REVIEW': ('ON_HOLD', 'DISPATCHED'),
-    'ON_HOLD': ('UNDER_REVIEW', 'DISPATCHED', 'CLOSED'),
-    'DISPATCHED': ('RESOLVED', 'ON_HOLD'),
+    'NEW': ('UNDER_REVIEW', 'INVALID'),
+    'ASSIGNED': ('UNDER_REVIEW', 'INVALID'),
+    'UNDER_REVIEW': ('ON_HOLD', 'DISPATCHED', 'INVALID'),
+    'ON_HOLD': ('UNDER_REVIEW', 'DISPATCHED', 'CLOSED', 'INVALID'),
+    'DISPATCHED': ('RESOLVED', 'ON_HOLD', 'INVALID'),
     'RESOLVED': ('CLOSED',),
     'CLOSED': (),
+    'INVALID': (),
 }
 
 
@@ -51,6 +54,7 @@ class HazardReports(models.Model):
         # Phase 4: Resolution and Closure
         RESOLVED = 'RESOLVED', 'Resolved' #'Issue is solved but needs user verification'
         CLOSED = 'CLOSED', 'Closed' #'Closed by reporter confirmation, or force-closed by staff (e.g. out of DO 47 jurisdiction)' #
+        INVALID = 'INVALID', 'Invalid' #'Closed as false/unverifiable — moderation action on suspected fake or troll reports'
 
         @property
         def phase(self) -> int:
@@ -65,6 +69,7 @@ class HazardReports(models.Model):
 
                 self.RESOLVED: 4,
                 self.CLOSED: 4,
+                self.INVALID: 4,
             }
             return phase_map[self]
 
@@ -73,6 +78,7 @@ class HazardReports(models.Model):
             return [
                 cls.ON_HOLD,
                 cls.CLOSED,
+                cls.INVALID,
             ]
 
         def get_next_expected_statuses(self) -> list:
