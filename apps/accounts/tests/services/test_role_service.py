@@ -259,6 +259,34 @@ class TestUpdateRole:
         assert result.is_success
         assert list(role.permissions.all()) == [perm]
 
+    def test_rename_to_equivalent_name_leaves_code_unchanged(self):
+        role = RoleFactory(role_name='Field Officer', role_code='FIELD_OFFICER')
+
+        result = RoleService.update_role(
+            role_id=role.role_id,
+            fields={'role_name': 'field officer'},
+        )
+
+        assert result.is_success
+        role.refresh_from_db()
+        assert role.role_name == 'Field Officer'
+        assert role.role_code == 'FIELD_OFFICER'
+
+    def test_description_and_permissions_updated_together(self):
+        old_permission = PermissionFactory(permission_name='perm:old')
+        new_permission = PermissionFactory(permission_name='perm:new')
+        role = RoleFactory(description='Original', permissions=[old_permission])
+
+        result = RoleService.update_role(
+            role_id=role.role_id,
+            fields={'description': 'Updated', 'permission_names': ['perm:new']},
+        )
+
+        assert result.is_success
+        role.refresh_from_db()
+        assert role.description == 'Updated'
+        assert set(role.permissions.all()) == {new_permission}
+
 
 @pytest.mark.django_db
 class TestDuplicateRole:

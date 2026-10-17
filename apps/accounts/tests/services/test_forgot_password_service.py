@@ -6,6 +6,7 @@ from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.accounts.domain_errors.forgot_password_error import PasswordResetInvalidError
+from apps.accounts.domain_errors.user_error import UserNotFoundError
 from apps.accounts.exceptions.forgot_password_exception import ForgotPasswordRequestNotFoundException
 from apps.accounts.models import VerificationRequest
 from apps.accounts.services import ForgotPasswordService, VerificationService
@@ -185,3 +186,43 @@ class TestResetPassword:
         assert user.check_password('NewPassword123')
         assert not VerificationRequest.objects.filter(pk=verification.pk).exists()
         assert BlacklistedToken.objects.filter(token__token=str(outstanding_token)).exists()
+
+    def test_null_reset_token_hash_is_treated_as_invalid(self, citizen_role):
+        user = UserFactory(role=citizen_role)
+        verification = VerificationRequestFactory(
+            email=user.email,
+            purpose=FORGOT_PASSWORD,
+            otp_hash=None,
+            payload={'reset_token_hash': None},
+            expires_at=timezone.now() + timedelta(minutes=10),
+        )
+
+        result = ForgotPasswordService.reset_password(
+            email=user.email,
+            reset_token='any-token',
+            new_password='NewPassword123',
+        )
+
+        assert result.is_success is False
+        assert result.error.error_code == PasswordResetInvalidError.error_code
+        assert not VerificationRequest.objects.filter(pk=verification.pk).exists()
+        user.refresh_from_db()
+        assert user.check_password('Password2005')
+
+    def test_user_deactivated_mid_flow_returns_error_and_keeps_verification(self, citizen_role):
+        user = UserFactory(role=citizen_role)
+        verification, reset_token = self._seed_ready_verification(email=user.email)
+        user.is_active = False
+        user.save(update_fields=['is_active', 'updated_at'])
+
+        result = ForgotPasswordService.reset_password(
+            email=user.email,
+            reset_token=reset_token,
+            new_password='NewPassword123',
+        )
+
+        assert result.is_success is False
+        assert result.error.error_code == UserNotFoundError.error_code
+        assert VerificationRequest.objects.filter(pk=verification.pk).exists()
+        user.refresh_from_db()
+        assert user.check_password('Password2005')
