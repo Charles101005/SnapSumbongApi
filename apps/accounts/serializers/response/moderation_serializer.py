@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
 
-class WarningRecordResponseSerializer(serializers.Serializer):
+class _WarningRecordResponseSerializer(serializers.Serializer):
     warning_number = serializers.CharField()
     reason = serializers.CharField()
     report_number = serializers.CharField(allow_null=True)
@@ -11,7 +11,7 @@ class WarningRecordResponseSerializer(serializers.Serializer):
 
 class CitizenWarningsResponseSerializer(serializers.Serializer):
     count = serializers.IntegerField()
-    warnings = WarningRecordResponseSerializer(many=True)
+    warnings = _WarningRecordResponseSerializer(many=True)
 
 
 class ModerationSummaryResponseSerializer(serializers.Serializer):

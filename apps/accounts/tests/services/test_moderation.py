@@ -149,6 +149,20 @@ class TestIssueWarning:
         assert not result.is_success
         assert result.error == UserNotFoundError
 
+    def test_warn_rejects_unknown_linked_report(self, supervisor_role, citizen_role):
+        supervisor = UserFactory(role=supervisor_role, is_staff=True)
+        citizen = UserFactory(role=citizen_role)
+
+        result = ModerationService.issue_warning(
+            actor=supervisor,
+            user_number=citizen.user_number,
+            reason="Citing a report number that does not exist.",
+            report_number="RPT-99999999-XXXXXX",
+        )
+
+        assert not result.is_success
+        assert result.error == UserNotFoundError
+
 
 @pytest.mark.django_db
 class TestBanCitizen:
@@ -270,6 +284,34 @@ class TestBanCitizen:
         assert not result.is_success
         assert result.error == UserNotFoundError
 
+    def test_ban_self_by_citizen_actor_rejected(self, citizen_role):
+        citizen = UserFactory(role=citizen_role)
+
+        # A non-staff actor targeting their own account reaches the
+        # dedicated self-ban guard (BanSelfDeniedError).
+        result = ModerationService.ban_citizen(
+            actor=citizen,
+            user_number=citizen.user_number,
+            reason="Trying to ban own citizen account.",
+        )
+
+        assert not result.is_success
+        assert result.error == BanSelfDeniedError
+
+    def test_ban_rejects_unknown_fast_track_report(self, system_admin_role, citizen_role):
+        admin = UserFactory(role=system_admin_role, is_staff=True)
+        citizen = UserFactory(role=citizen_role)
+
+        result = ModerationService.ban_citizen(
+            actor=admin,
+            user_number=citizen.user_number,
+            reason="Citing a report number that does not exist.",
+            report_number="RPT-99999999-XXXXXX",
+        )
+
+        assert not result.is_success
+        assert result.error == BanNotEligibleError
+
     def test_ban_already_banned_rejected(self, system_admin_role, citizen_role):
         admin = UserFactory(role=system_admin_role, is_staff=True)
         citizen = UserFactory(role=citizen_role, is_active=False)
@@ -327,6 +369,64 @@ class TestUnbanCitizen:
 
         assert not result.is_success
         assert result.error == UnbanTargetNotInactiveError
+
+    def test_unban_rejects_unknown_user(self, system_admin_role):
+        admin = UserFactory(role=system_admin_role, is_staff=True)
+
+        result = ModerationService.unban_citizen(
+            actor=admin,
+            user_number="USER-99999999-XXXXXX",
+            reason="Trying to unban a user that does not exist.",
+        )
+
+        assert not result.is_success
+        assert result.error == UserNotFoundError
+
+
+@pytest.mark.django_db
+class TestGetModerationSummary:
+    def test_summary_reports_warning_count_and_active_state(self, citizen_role):
+        citizen = UserFactory(role=citizen_role)
+
+        result = ModerationService.get_moderation_summary(user=citizen)
+
+        assert result.is_success
+        assert result.value["warning_count"] == 0
+        assert result.value["is_active"] is True
+
+    def test_summary_counts_warnings_and_reflects_ban(self, supervisor_role, citizen_role):
+        supervisor = UserFactory(role=supervisor_role, is_staff=True)
+        citizen = UserFactory(role=citizen_role)
+        _warn(citizen, supervisor)
+        _warn(citizen, supervisor)
+        citizen.is_active = False
+        citizen.save(update_fields=["is_active"])
+
+        result = ModerationService.get_moderation_summary(user=citizen)
+
+        assert result.is_success
+        assert result.value["warning_count"] == 2
+        assert result.value["is_active"] is False
+
+
+@pytest.mark.django_db
+class TestGetWarningsForUser:
+    def test_returns_warnings_for_known_user(self, supervisor_role, citizen_role):
+        supervisor = UserFactory(role=supervisor_role, is_staff=True)
+        citizen = UserFactory(role=citizen_role)
+        _warn(citizen, supervisor, reason="Staff lookup warning reason.")
+
+        result = ModerationService.get_warnings_for_user(user_number=citizen.user_number)
+
+        assert result.is_success
+        assert result.value["count"] == 1
+        assert result.value["warnings"][0]["reason"] == "Staff lookup warning reason."
+
+    def test_rejects_unknown_user(self):
+        result = ModerationService.get_warnings_for_user(user_number="USER-99999999-XXXXXX")
+
+        assert not result.is_success
+        assert result.error == UserNotFoundError
 
 
 @pytest.mark.django_db

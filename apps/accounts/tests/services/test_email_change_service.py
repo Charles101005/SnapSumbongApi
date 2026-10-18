@@ -2,6 +2,7 @@ from datetime import timedelta
 
 import pytest
 from django.contrib.auth.hashers import make_password
+from django.db import IntegrityError
 from django.utils import timezone
 
 from apps.accounts.domain_errors.email_change_error import (
@@ -198,6 +199,51 @@ class TestVerifyEmailChange:
                 email='unknown@email.com',
                 otp=TEST_OTP,
             )
+
+    def test_payload_without_new_email_returns_invalid_and_deletes_verification(self, citizen_role):
+        user = UserFactory(role=citizen_role)
+        verification = VerificationRequestFactory(
+            email='new@email.com',
+            purpose=EMAIL_CHANGE,
+            otp_hash=make_password(TEST_OTP),
+            payload={'user_id': user.user_id, 'old_email': user.email},
+        )
+
+        result = EmailChangeService.verify_email_change(
+            user=user,
+            email='new@email.com',
+            otp=TEST_OTP,
+        )
+
+        assert result.is_success is False
+        assert result.error.error_code == EmailChangeVerificationInvalidError.error_code
+        assert not VerificationRequest.objects.filter(pk=verification.pk).exists()
+        user.refresh_from_db()
+        assert user.email != 'new@email.com'
+
+    def test_integrity_error_on_save_returns_taken_error(self, citizen_role, mocker):
+        user = UserFactory(role=citizen_role)
+        verification = VerificationRequestFactory(
+            email='new@email.com',
+            purpose=EMAIL_CHANGE,
+            otp_hash=make_password(TEST_OTP),
+            payload={
+                'user_id': user.user_id,
+                'old_email': user.email,
+                'new_email': 'new@email.com',
+            },
+        )
+        mocker.patch.object(user, 'save', side_effect=IntegrityError('duplicate email'))
+
+        result = EmailChangeService.verify_email_change(
+            user=user,
+            email='new@email.com',
+            otp=TEST_OTP,
+        )
+
+        assert result.is_success is False
+        assert result.error.error_code == EmailAlreadyTakenError.error_code
+        assert not VerificationRequest.objects.filter(pk=verification.pk).exists()
 
 
 @pytest.mark.django_db

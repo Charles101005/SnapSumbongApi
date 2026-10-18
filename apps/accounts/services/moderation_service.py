@@ -40,7 +40,7 @@ class ModerationService:
             user_number: str,
             reason: str,
             report_number: str|None=None,
-    ) -> DomainResult[CitizenWarnings]:
+    ) -> DomainResult[None]:
         citizen = ModerationService._find_citizen(user_number)
         if citizen is None:
             return DomainResult.error(UserNotFoundError)
@@ -81,7 +81,7 @@ class ModerationService:
             report_number=report_number,
         )
 
-        return DomainResult.success(warning)
+        return DomainResult.success(None)
 
     @staticmethod
     @transaction.atomic

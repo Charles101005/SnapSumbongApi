@@ -9,6 +9,7 @@ from rest_framework.response import Response
 from apps.accounts.domain_errors.user_error import UserNotFoundError
 from apps.accounts.middleware import UpdateLastActiveMiddleware
 from apps.accounts.models import VerificationRequest
+from apps.accounts.serializers.request.profile_serializer import RequestEmailChangeRequestSerializer
 from apps.accounts.services import RegisterService, VerificationService
 from apps.accounts.tests.factories import UserFactory, VerificationRequestFactory
 from apps.accounts.tests.factories.verification_factory import TEST_OTP
@@ -106,3 +107,21 @@ class TestVerifyTempUserErrorPropagation:
         assert result.is_success is False
         assert result.error is UserNotFoundError
         assert VerificationRequest.objects.filter(pk=verification.pk).exists()
+
+
+class TestRequestEmailChangeSerializerNoUserContext:
+    def test_valid_email_passes_without_user_in_context(self):
+        serializer = RequestEmailChangeRequestSerializer(
+            data={'new_email': 'new@email.com'},
+        )
+
+        assert serializer.is_valid() is True
+        assert serializer.validated_data['new_email'] == 'new@email.com'
+
+    def test_invalid_email_still_rejected_without_user_in_context(self):
+        serializer = RequestEmailChangeRequestSerializer(
+            data={'new_email': 'not-an-email'},
+        )
+
+        assert serializer.is_valid() is False
+        assert 'new_email' in serializer.errors
