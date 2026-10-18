@@ -8,7 +8,15 @@ VerifyForgotPasswordView,
 ResendForgotPasswordVerificationCodeView,
 ResetPasswordView
 )
-from .views.profile_view import ProfileView, change_password, deactivate_account_view, profile_image_signature_view
+from .views.profile_view import (
+    ProfileView,
+    change_password,
+    deactivate_account_view,
+    profile_image_signature_view,
+    request_email_change_view,
+    verify_email_change_view,
+    resend_email_change_view
+)
 from .views.citizen_view import CitizenListView, CitizenDetailView
 from .views.employee_view import EmployeeListView, EmployeeDetailView
 from .views.lookup_view import lookup_roles_view, lookup_permissions_view
@@ -41,6 +49,9 @@ urlpatterns = [
     path("profile/change-password/", change_password, name="change_password"),
     path("profile/deactivate/", deactivate_account_view, name="deactivate_account"),
     path("profile/image-signature/", profile_image_signature_view, name="profile_image_signature"),
+    path("profile/email-change/request/", request_email_change_view, name="email_change_request"),
+    path("profile/email-change/verify/", verify_email_change_view, name="email_change_verify"),
+    path("profile/email-change/resend/", resend_email_change_view, name="email_change_resend"),
     path("profile/warnings/", MyWarningsView.as_view(), name="my_warnings"),
     path("profile/moderation/", MyModerationSummaryView.as_view(), name="my_moderation_summary"),
 

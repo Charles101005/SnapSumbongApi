@@ -57,6 +57,7 @@ class VerificationRequest(models.Model):
     class VerificationPurpose(models.TextChoices):
         REGISTRATION = 'REGISTRATION'
         FORGOT_PASSWORD = 'FORGOT_PASSWORD'
+        EMAIL_CHANGE = 'EMAIL_CHANGE'
 
 
     email = models.EmailField()

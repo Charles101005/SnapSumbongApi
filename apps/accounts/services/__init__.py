@@ -3,5 +3,6 @@ from .verification_service import VerificationService
 from .user_service import UserService
 from .register_service import RegisterService
 from .forgot_password_service import ForgotPasswordService
+from .email_change_service import EmailChangeService
 from .role_service import RoleService
 from .moderation_service import ModerationService

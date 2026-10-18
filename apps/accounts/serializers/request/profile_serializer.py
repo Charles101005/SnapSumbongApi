@@ -1,5 +1,4 @@
 from rest_framework import serializers
-from rest_framework.validators import UniqueValidator
 
 from apps.accounts.models import Users
 from apps.accounts.serializers.base_serializer import BasePasswordValidationSerializer
@@ -30,12 +29,6 @@ class UpdateProfileRequestSerializer(serializers.Serializer):
     last_name = serializers.CharField(max_length=50)
     first_name = serializers.CharField(max_length=50)
     middle_name = serializers.CharField(max_length=50)
-    email = serializers.EmailField(
-        validators=[UniqueValidator(
-            queryset=Users.objects.all(),
-            message="The provided email address is already in use.",
-        )]
-    )
     contact_number = serializers.CharField(min_length=11, max_length=11)
     is_notified = serializers.BooleanField()
     profile_picture = serializers.URLField(max_length=500)
@@ -49,6 +42,14 @@ class UpdateProfileRequestSerializer(serializers.Serializer):
     city_code = serializers.CharField(validators=[ten_digit_psgc_code_validator])
     barangay_code = serializers.CharField(validators=[ten_digit_psgc_code_validator])
 
+    def validate(self, attrs):
+        if 'email' in self.initial_data:
+            raise serializers.ValidationError({
+                'email': 'Email changes must be verified. '
+                         'Please use POST /profile/email-change/request/ to change your email address.'
+            })
+        return attrs
+
     def validate_profile_picture(self, value):
         expected_base_url = StorageService.get_expected_response_base_url()
         expected_folder = f"/{UploadIntent.USER_PROFILES.value}/"
@@ -57,3 +58,32 @@ class UpdateProfileRequestSerializer(serializers.Serializer):
             raise serializers.ValidationError("Invalid URL")
 
         return value
+
+
+class RequestEmailChangeRequestSerializer(serializers.Serializer):
+    new_email = serializers.EmailField()
+
+    def validate_new_email(self, value):
+        request = self.context.get('request')
+        user = getattr(request, 'user', None) if request else None
+
+        if user:
+            if value.lower() == user.email.lower():
+                raise serializers.ValidationError(
+                    "New email cannot be the same as your current email."
+                )
+
+            if Users.objects.filter(email__iexact=value).exclude(pk=user.pk).exists():
+                raise serializers.ValidationError(
+                    "The provided email address is already in use."
+                )
+
+        return value
+
+
+class VerifyEmailChangeRequestSerializer(serializers.Serializer):
+    otp = serializers.CharField(write_only=True, min_length=4, max_length=4)
+
+
+class ResendEmailChangeRequestSerializer(serializers.Serializer):
+    email = serializers.EmailField()

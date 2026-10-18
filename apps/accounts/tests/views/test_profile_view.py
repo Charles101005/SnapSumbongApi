@@ -17,7 +17,6 @@ def _valid_profile_payload(user, **overrides):
         'last_name': 'Dela Cruz',
         'first_name': 'Juan',
         'middle_name': 'Santos',
-        'email': user.email,
         'contact_number': '09171234567',
         'is_notified': False,
         'profile_picture': f'{base_url}{UploadIntent.USER_PROFILES.value}/abc123_pfp.jpg',
@@ -54,23 +53,34 @@ class TestProfileView:
 
     def test_patch_updates_profile(self, api_client, citizen_role):
         user = UserFactory(role=citizen_role)
+        original_email = user.email
         api_client.force_authenticate(user=user)
 
-        # Note: the serializer's UniqueValidator does not exclude the current
-        # user, so patching with your own email always fails - a fresh email
-        # is required for a successful update.
         response = api_client.patch(
             PROFILE_URL,
-            _valid_profile_payload(user, first_name='Updated', email='updated@email.com'),
+            _valid_profile_payload(user, first_name='Updated'),
             format='json',
         )
 
         assert response.status_code == 200
         user.refresh_from_db()
         assert user.first_name == 'Updated'
-        assert user.email == 'updated@email.com'
+        assert user.email == original_email  # email unchanged
         assert user.contact_number == '09171234567'
         assert user.is_notified is False
+
+    def test_patch_with_email_returns_400(self, api_client, citizen_role):
+        user = UserFactory(role=citizen_role)
+        api_client.force_authenticate(user=user)
+
+        response = api_client.patch(
+            PROFILE_URL,
+            _valid_profile_payload(user, email='changed@email.com'),
+            format='json',
+        )
+
+        assert response.status_code == 400
+        assert 'email' in response.json()
 
     def test_patch_with_own_email_returns_400(self, api_client, citizen_role):
         user = UserFactory(role=citizen_role)
@@ -78,21 +88,7 @@ class TestProfileView:
 
         response = api_client.patch(
             PROFILE_URL,
-            _valid_profile_payload(user),
-            format='json',
-        )
-
-        assert response.status_code == 400
-        assert 'email' in response.json()
-
-    def test_patch_duplicate_email_returns_400(self, api_client, citizen_role):
-        user = UserFactory(role=citizen_role)
-        other = UserFactory(role=citizen_role)
-        api_client.force_authenticate(user=user)
-
-        response = api_client.patch(
-            PROFILE_URL,
-            _valid_profile_payload(user, email=other.email),
+            _valid_profile_payload(user, email=user.email),
             format='json',
         )
 

@@ -5,16 +5,23 @@ from rest_framework.views import APIView
 from rest_framework.decorators import api_view
 
 from shared.results import DomainResultResponse
-from apps.accounts.services import UserService
+from apps.accounts.services import UserService, EmailChangeService
 from shared.authorization import AllPermissions
 from shared.authorization.decorators import require_perm
 from apps.accounts.serializers.response.profile_serializer import (
     GetProfileResponseSerializer,
-    GetProfileImageSignatureResponseSerializer
+    GetProfileImageSignatureResponseSerializer,
+    VerifyEmailChangeResponseSerializer
 )
 from apps.accounts.serializers.request.profile_serializer import (
     ChangePasswordRequestSerializer,
-    UpdateProfileRequestSerializer
+    UpdateProfileRequestSerializer,
+    RequestEmailChangeRequestSerializer,
+    VerifyEmailChangeRequestSerializer,
+    ResendEmailChangeRequestSerializer
+)
+from apps.accounts.serializers.response.verification_serializer import (
+    VerificationSessionCreationResponseSerializer
 )
 
 
@@ -38,7 +45,7 @@ class ProfileView(APIView):
 
     @require_perm(AllPermissions.USERS.UPDATE_OWN)
     def patch(self, request: Request) -> Response:
-        serializer = UpdateProfileRequestSerializer(data=request.data, partial=True)
+        serializer = UpdateProfileRequestSerializer(data=request.data, partial=True, context={'request': request})
         serializer.is_valid(raise_exception=True)
 
         validated_data = serializer.validated_data
@@ -76,5 +83,57 @@ def deactivate_account_view(request: Request) -> Response:
     result = UserService.deactivate_account(request.user)
 
     return DomainResultResponse(result).respond(
+        success_status_code=status.HTTP_200_OK,
+    )
+
+
+@api_view(['POST'])
+@require_perm(AllPermissions.USERS.UPDATE_OWN)
+def request_email_change_view(request: Request) -> Response:
+    serializer = RequestEmailChangeRequestSerializer(data=request.data, context={'request': request})
+    serializer.is_valid(raise_exception=True)
+
+    result = EmailChangeService.request_email_change(
+        user=request.user,
+        new_email=serializer.validated_data['new_email'],
+    )
+
+    return DomainResultResponse(result).respond(
+        serializer_class=VerificationSessionCreationResponseSerializer,
+        success_status_code=status.HTTP_200_OK,
+    )
+
+
+@api_view(['POST'])
+@require_perm(AllPermissions.USERS.UPDATE_OWN)
+def verify_email_change_view(request: Request) -> Response:
+    serializer = VerifyEmailChangeRequestSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+
+    result = EmailChangeService.verify_email_change(
+        user=request.user,
+        email=request.data.get('email', ''),
+        otp=serializer.validated_data['otp'],
+    )
+
+    return DomainResultResponse(result).respond(
+        serializer_class=VerifyEmailChangeResponseSerializer,
+        success_status_code=status.HTTP_200_OK,
+    )
+
+
+@api_view(['POST'])
+@require_perm(AllPermissions.USERS.UPDATE_OWN)
+def resend_email_change_view(request: Request) -> Response:
+    serializer = ResendEmailChangeRequestSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+
+    result = EmailChangeService.resend_email_change(
+        user=request.user,
+        email=serializer.validated_data['email'],
+    )
+
+    return DomainResultResponse(result).respond(
+        serializer_class=VerificationSessionCreationResponseSerializer,
         success_status_code=status.HTTP_200_OK,
     )

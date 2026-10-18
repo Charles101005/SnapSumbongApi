@@ -36,3 +36,7 @@ class GetProfileImageSignatureResponseSerializer(serializers.Serializer):
 
     def get_signature(self, obj):
         return obj["image_signatures"][0]["signature"]
+
+
+class VerifyEmailChangeResponseSerializer(serializers.Serializer):
+    email = serializers.EmailField()
