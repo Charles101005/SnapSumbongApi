@@ -5,7 +5,7 @@ from rest_framework.views import APIView
 
 from shared.results import DomainResultResponse
 from shared.authorization import AllPermissions
-from shared.authorization.decorators import require_perm
+from shared.authorization.decorators import require_perm, require_any_perms
 from apps.accounts.services.moderation_service import ModerationService
 from apps.accounts.serializers.request.moderation_serializer import (
     WarnCitizenRequestSerializer,
@@ -97,7 +97,10 @@ class MyModerationSummaryView(APIView):
 
 
 class CitizenWarningsView(APIView):
-    @require_perm(AllPermissions.USERS.READ_ALL)
+    @require_any_perms(
+        AllPermissions.USERS.READ_ALL,
+        AllPermissions.USERS.WARN,
+    )
     def get(self, request: Request, user_number: str) -> Response:
         result = ModerationService.get_warnings_for_user(user_number=user_number)
 

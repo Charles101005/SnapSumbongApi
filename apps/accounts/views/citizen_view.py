@@ -40,7 +40,10 @@ class CitizenListView(APIView):
 
 
 class CitizenDetailView(APIView):
-    @require_perm(AllPermissions.USERS.READ_ALL)
+    @require_any_perms(
+        AllPermissions.USERS.READ_ALL,
+        AllPermissions.USERS.WARN,
+    )
     def get(self, request: Request, user_number: str) -> Response:
         result = UserService.get_user(
             user_number=user_number,

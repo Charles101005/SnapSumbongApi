@@ -8,6 +8,7 @@ from apps.accounts.domain_errors.user_error import (
     WarnTargetInactiveError,
     LinkedReportNotInvalidError,
     LinkedReportNotOwnedError,
+    LinkedReportAlreadyWarnedError,
     BanTargetInactiveError,
     BanSelfDeniedError,
     BanNotEligibleError,
@@ -61,6 +62,9 @@ class ModerationService:
 
             if report.reported_by_id != citizen.user_id:
                 return DomainResult.error(LinkedReportNotOwnedError)
+
+            if CitizenWarnings.objects.filter(report=report).exists():
+                return DomainResult.error(LinkedReportAlreadyWarnedError)
 
         warning = CitizenWarnings.objects.create(
             user=citizen,

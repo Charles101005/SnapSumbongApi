@@ -45,6 +45,12 @@ LinkedReportNotOwnedError = DomainError(
     error_code="LINKED_REPORT_NOT_OWNED",
 )
 
+LinkedReportAlreadyWarnedError = DomainError(
+    detail="A warning has already been issued for this report. Each report can only support one warning.",
+    status_code=status.HTTP_409_CONFLICT,
+    error_code="LINKED_REPORT_ALREADY_WARNED",
+)
+
 BanTargetNotCitizenError = DomainError(
     detail="Bans can only be applied to citizen accounts.",
     status_code=status.HTTP_400_BAD_REQUEST,

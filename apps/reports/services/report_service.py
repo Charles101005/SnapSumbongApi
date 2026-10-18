@@ -29,6 +29,7 @@ from apps.reports.domain_errors.report_error import (
     MissingAfterPhotoError,
     ReportNotResolvedError,
     ValidatorNameRequiredError,
+    SeverityRequiredForReviewError,
 )
 from apps.accounts.services import UserService
 from apps.audits.services import AuditLogService
@@ -326,6 +327,12 @@ class ReportService:
 
             if new_status_str in HazardReports.Status.get_mandatory_remarks_statuses() and not remarks:
                 return DomainResult.error(MandatoryRemarksStatusError)
+
+            # Severity is the triage verdict made during verification, so a
+            # report may only enter Under Review once one exists — either
+            # already set on the report or included in this same update.
+            if new_status_str == HazardReports.Status.UNDER_REVIEW and not (new_severity_str or report.severity):
+                return DomainResult.error(SeverityRequiredForReviewError)
 
             old_status = HazardReports.Status(report.status)
             report.status = HazardReports.Status(new_status_str)

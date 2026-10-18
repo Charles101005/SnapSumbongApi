@@ -64,7 +64,6 @@ class AllDefaultRoles:
 
             AllPermissions.USERS.READ_OWN,
             AllPermissions.USERS.UPDATE_OWN,
-            AllPermissions.USERS.READ_ALL,
 
             AllPermissions.EMPLOYEES.READ_HANDLERS,
 
