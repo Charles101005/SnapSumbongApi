@@ -7,6 +7,7 @@ from apps.accounts.domain_errors.user_error import (
     WarnTargetInactiveError,
     LinkedReportNotInvalidError,
     LinkedReportNotOwnedError,
+    LinkedReportAlreadyWarnedError,
     BanTargetInactiveError,
     BanSelfDeniedError,
     BanNotEligibleError,
@@ -91,6 +92,41 @@ class TestIssueWarning:
 
         assert not result.is_success
         assert result.error == LinkedReportNotOwnedError
+
+    def test_warn_rejects_duplicate_report(self, supervisor_role, citizen_role):
+        supervisor = UserFactory(role=supervisor_role, is_staff=True)
+        citizen = UserFactory(role=citizen_role)
+        report = HazardReportFactory(
+            status=HazardReports.Status.INVALID,
+            reported_by=citizen,
+        )
+
+        first = _warn(citizen, supervisor, report=report)
+        second = _warn(citizen, supervisor, report=report)
+
+        assert first.is_success
+        assert not second.is_success
+        assert second.error == LinkedReportAlreadyWarnedError
+        assert CitizenWarnings.objects.filter(user=citizen).count() == 1
+
+    def test_warn_allows_second_warning_on_different_report(self, supervisor_role, citizen_role):
+        supervisor = UserFactory(role=supervisor_role, is_staff=True)
+        citizen = UserFactory(role=citizen_role)
+        first_report = HazardReportFactory(
+            status=HazardReports.Status.INVALID,
+            reported_by=citizen,
+        )
+        second_report = HazardReportFactory(
+            status=HazardReports.Status.INVALID,
+            reported_by=citizen,
+        )
+
+        first = _warn(citizen, supervisor, report=first_report)
+        second = _warn(citizen, supervisor, report=second_report)
+
+        assert first.is_success
+        assert second.is_success
+        assert CitizenWarnings.objects.filter(user=citizen).count() == 2
 
     def test_warn_rejects_inactive_target(self, supervisor_role, citizen_role):
         supervisor = UserFactory(role=supervisor_role, is_staff=True)
@@ -382,3 +418,25 @@ class TestBanEndpointPermissions:
         response = api_client.get(f"/accounts/citizens/{other.user_number}/warnings/")
 
         assert response.status_code == 403
+
+
+@pytest.mark.django_db
+class TestSupervisorModerationWithoutUserManagement:
+    def test_supervisor_cannot_list_citizens(self, api_client, supervisor_role, citizen_role):
+        UserFactory(role=citizen_role)
+        supervisor = UserFactory(role=supervisor_role, is_staff=True)
+
+        api_client.force_authenticate(user=supervisor)
+        response = api_client.get("/accounts/citizens/")
+
+        assert response.status_code == 403
+
+    def test_supervisor_can_read_citizen_detail_for_moderation(self, api_client, supervisor_role, citizen_role):
+        supervisor = UserFactory(role=supervisor_role, is_staff=True)
+        citizen = UserFactory(role=citizen_role)
+
+        api_client.force_authenticate(user=supervisor)
+        response = api_client.get(f"/accounts/citizens/{citizen.user_number}/")
+
+        assert response.status_code == 200
+        assert response.data["user_number"] == citizen.user_number

@@ -9,6 +9,7 @@ class _ReportMetricsByStatus(serializers.Serializer):
     dispatched = serializers.IntegerField(default=0)
     resolved = serializers.IntegerField(default=0)
     closed = serializers.IntegerField(default=0)
+    invalid = serializers.IntegerField(default=0)
 
 
 class GetReportMetricsResponseSerializer(serializers.Serializer):

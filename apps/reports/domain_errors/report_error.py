@@ -45,6 +45,12 @@ MandatoryRemarksStatusError = DomainError(
     error_code="MANDATORY_REMARKS_STATUS",
 )
 
+SeverityRequiredForReviewError = DomainError(
+    detail="A severity (P1-P5) is required before moving a report to Under Review.",
+    status_code=status.HTTP_400_BAD_REQUEST,
+    error_code="SEVERITY_REQUIRED_FOR_REVIEW",
+)
+
 ReportNotResolvedError = DomainError(
     detail="Only reports with resolved status can be confirmed by the reporter.",
     status_code=status.HTTP_409_CONFLICT,
