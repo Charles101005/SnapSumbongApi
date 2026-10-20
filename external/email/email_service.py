@@ -1,6 +1,7 @@
 import re
 from typing import Any
 
+from django.conf import settings
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
 
@@ -11,10 +12,51 @@ class EmailService:
     _client = ResendClient()
     _app_name = "SnapSumbong"
 
+    # Dev-only switch: when DEBUG is True, controls whether an email is
+    # actually handed to Resend (sent to the resend.dev domain) or only
+    # printed to the console. Completely inert in prod (DEBUG=False) --
+    # prod always sends and never prints.
+    _dev_email_enabled: bool = True
+
+    @classmethod
+    def _resolve_sender(cls, *, auth: bool) -> str:
+        if settings.DEBUG:
+            return settings.DEFAULT_FROM_EMAIL  # SnapSumbong <onboarding@resend.dev>
+
+        if auth:
+            return settings.EMAIL_FROM_AUTH or settings.DEFAULT_FROM_EMAIL
+        return settings.EMAIL_FROM_GENERAL or settings.DEFAULT_FROM_EMAIL
+
+    @classmethod
+    def _should_send(cls) -> bool:
+        return cls._dev_email_enabled if settings.DEBUG else True
+
+    @classmethod
+    def _print_to_console(
+            cls,
+            *,
+            from_email: str,
+            to_emails: list[str],
+            subject: str,
+            text_body: str
+    ) -> None:
+        separator = "=" * 60
+        to_line = ", ".join(to_emails)
+        print(f"\n{separator}")
+        print("[EmailService] EMAIL NOT SENT VIA RESEND (dev console)")
+        print(separator)
+        print(f"From:    {from_email}")
+        print(f"To:      {to_line}")
+        print(f"Subject: {subject}")
+        print(separator)
+        print(text_body)
+        print(separator + "\n")
+
     @classmethod
     def _compile_and_send(
             cls,
             *,
+            from_email: str,
             to_emails: list[str],
             subject: str,
             template_path: str,
@@ -22,10 +64,25 @@ class EmailService:
     ) -> bool:
         html_body = render_to_string(template_path, context)
 
-        raw_text = strip_tags(html_body)
+        # Drop <style> blocks first: strip_tags would otherwise leave the raw
+        # CSS as visible text in the plain-text body.
+        text_source = re.sub(r"<style\b.*?</style>", "", html_body, flags=re.IGNORECASE | re.DOTALL)
+        raw_text = strip_tags(text_source)
         text_body = re.sub(r"\n\s*\n", "\n\n", raw_text).strip()
 
+        if settings.DEBUG:
+            cls._print_to_console(
+                from_email=from_email,
+                to_emails=to_emails,
+                subject=subject,
+                text_body=text_body
+            )
+            if not cls._should_send():
+                # Dev, flag off: console-only, report success without sending.
+                return True
+
         return cls._client.deliver(
+            from_email=from_email,
             to_emails=to_emails,
             subject=subject,
             html_body=html_body,
@@ -43,6 +100,7 @@ class EmailService:
             expiry_minutes: str|int
     ) -> bool:
         return cls._compile_and_send(
+            from_email=cls._resolve_sender(auth=True),
             to_emails=[to_email],
             subject=f"Your {cls._app_name} {verification_type.lower()} code",
             template_path="verification_otp.html",
@@ -101,6 +159,7 @@ class EmailService:
             submitted_at: str
     ) -> bool:
         return cls._compile_and_send(
+            from_email=cls._resolve_sender(auth=False),
             to_emails=[to_email],
             subject=f"We received your report {report_number}",
             template_path="report_successful_submission.html",
@@ -128,6 +187,7 @@ class EmailService:
             remarks: str = ""
     ) -> bool:
         return cls._compile_and_send(
+            from_email=cls._resolve_sender(auth=False),
             to_emails=[to_email],
             subject=f"Your report {report_number} is now {new_status}",
             template_path="report_status_update.html",
@@ -156,6 +216,7 @@ class EmailService:
             flagged_report_numbers: list[str]
     ) -> bool:
         return cls._compile_and_send(
+            from_email=cls._resolve_sender(auth=False),
             to_emails=[to_email],
             subject=f"Your {cls._app_name} account has been banned",
             template_path="user_banned.html",
@@ -180,6 +241,7 @@ class EmailService:
             full_name: str
     ) -> bool:
         return cls._compile_and_send(
+            from_email=cls._resolve_sender(auth=False),
             to_emails=[to_email],
             subject=f"Your {cls._app_name} account has been deactivated",
             template_path="user_self_deactivation.html",
@@ -202,6 +264,7 @@ class EmailService:
             temp_password: str
     ) -> bool:
         return cls._compile_and_send(
+            from_email=cls._resolve_sender(auth=False),
             to_emails=[to_email],
             subject=f"Your {cls._app_name} staff account has been created",
             template_path="employee_creation_temporary_password.html",

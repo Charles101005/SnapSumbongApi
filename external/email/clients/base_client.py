@@ -6,6 +6,7 @@ class BaseEmailClient(ABC):
     def deliver(
             self,
             *,
+            from_email: str,
             to_emails: list[str],
             subject: str,
             html_body: str,

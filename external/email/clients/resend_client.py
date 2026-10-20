@@ -7,11 +7,11 @@ from .base_client import BaseEmailClient
 class ResendClient(BaseEmailClient):
     def __init__(self):
         resend.api_key = settings.RESEND_API_KEY
-        self.from_email = settings.DEFAULT_FROM_EMAIL
 
     def deliver(
             self,
             *,
+            from_email: str,
             to_emails: list[str],
             subject: str,
             html_body: str,
@@ -19,7 +19,7 @@ class ResendClient(BaseEmailClient):
     ) -> bool:
         try:
             params: resend.Emails.SendParams = {
-                "from": self.from_email,
+                "from": from_email,
                 "to": to_emails,
                 "subject": subject,
                 "html": html_body,
