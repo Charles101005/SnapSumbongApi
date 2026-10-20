@@ -24,12 +24,16 @@ from apps.reports.domain_errors.report_error import (
     InvalidReportUpdateError,
     StatusResolutionImageConflictError,
     MandatoryRemarksStatusError,
+    AssignedStatusTransitionError,
+    MandatorySeverityStatusError,
     ResolutionImageRequiredError,
     MissingDuringPhotoError,
     MissingAfterPhotoError,
     ReportNotResolvedError,
     ValidatorNameRequiredError,
-    SeverityRequiredForReviewError,
+    ReportNotTransferableError,
+    InvalidTransferTargetError,
+    AlreadyAssignedToTargetError,
 )
 from apps.accounts.services import UserService
 from apps.audits.services import AuditLogService
@@ -327,11 +331,21 @@ class ReportService:
             if new_status_str in HazardReports.Status.get_mandatory_remarks_statuses() and not remarks:
                 return DomainResult.error(MandatoryRemarksStatusError)
 
-            # Severity is the triage verdict made during verification, so a
-            # report may only enter Under Review once one exists — either
-            # already set on the report or included in this same update.
-            if new_status_str == HazardReports.Status.UNDER_REVIEW and not (new_severity_str or report.severity):
-                return DomainResult.error(SeverityRequiredForReviewError)
+            # Assigned has exactly one next stage: Under Review. Enforced
+            # here so the rule holds no matter how the PATCH is sent.
+            if report.status == HazardReports.Status.ASSIGNED and new_status_str != HazardReports.Status.UNDER_REVIEW:
+                return DomainResult.error(AssignedStatusTransitionError)
+
+            # Severity is the triage verdict made during Under Review: it
+            # must already exist or be supplied in this same update before
+            # the report advances to On-Hold or Dispatched. Flagging Invalid
+            # stays exempt — that is a moderation verdict, not a triage one.
+            if (
+                report.status == HazardReports.Status.UNDER_REVIEW
+                and new_status_str in (HazardReports.Status.ON_HOLD, HazardReports.Status.DISPATCHED)
+                and not (new_severity_str or report.severity)
+            ):
+                return DomainResult.error(MandatorySeverityStatusError)
 
             old_status = HazardReports.Status(report.status)
             report.status = HazardReports.Status(new_status_str)
@@ -407,6 +421,57 @@ class ReportService:
 
         if updated_fields:
             report.save(update_fields=updated_fields)
+
+        return DomainResult.success(None)
+
+    @staticmethod
+    @transaction.atomic
+    def transfer_report(
+            *,
+            user: Users,
+            report_number: str,
+            assigned_to_user_number: str,
+            remarks: str|None=None
+    ) -> DomainResult[None]:
+        authorized_reports = ReportService._authorized_reports(user=user)
+
+        report = authorized_reports.filter(
+            report_number__iexact=report_number
+        ).select_for_update().first()
+        if not report:
+            raise ReportDoesNotExistException()
+
+        if HazardReports.Status(report.status).phase >= 4:
+            return DomainResult.error(ReportNotTransferableError)
+
+        # Eligible targets mirror the auto-assignment pool: active staff
+        # whose role can update assigned reports.
+        target_staff = Users.objects.filter(
+            user_number__iexact=assigned_to_user_number.strip(),
+            is_staff=True,
+            is_active=True,
+            role__permissions__permission_name=AllPermissions.REPORTS.UPDATE_ASSIGNED.name,
+        ).distinct().first()
+
+        if not target_staff:
+            return DomainResult.error(InvalidTransferTargetError)
+
+        if report.assigned_to_id == target_staff.user_id:
+            return DomainResult.error(AlreadyAssignedToTargetError)
+
+        previous_assignee = report.assigned_to
+        report.assigned_to = target_staff
+        # Status is intentionally left unchanged: a transfer is a handoff,
+        # not a workflow transition.
+        report.save(update_fields=["assigned_to"])
+
+        AuditLogService.log_report_transfer(
+            actor=user,
+            previous_assignee=previous_assignee,
+            new_assignee=target_staff,
+            remarks=remarks,
+            report=report
+        )
 
         return DomainResult.success(None)
 

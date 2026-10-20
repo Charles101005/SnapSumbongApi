@@ -13,17 +13,19 @@ class HazardReportManager(models.Manager):
 # UI transition matrix. Closed is a destination the process arrives at, not
 # a shortcut: verification (Under Review) must come first, early-phase
 # reports close only via On-Hold (referred out), and completed works close
-# only via Resolved. Invalid is a moderation override reachable from any
-# non-terminal status (fake/troll reports must be closeable at any stage).
-# The backend stays permissive; this map feeds
-# HazardReports.Status.get_next_expected_statuses, which the staff modal
-# uses to restrict its status dropdown.
+# only via Resolved. Assigned leads directly into Under Review — no other
+# next stage — and Invalid is only a triage verdict from Under Review
+# onward (fake/troll reports are flagged after verification has begun).
+# This map feeds HazardReports.Status.get_next_expected_statuses, which
+# the staff modal uses to restrict its status dropdown; ReportService also
+# enforces the Assigned rule server-side (every other row stays UI-only).
 STATUS_ALLOWED_TRANSITIONS = {
     'NEW': ('UNDER_REVIEW', 'INVALID'),
-    'ASSIGNED': ('UNDER_REVIEW', 'INVALID'),
+    'ASSIGNED': ('UNDER_REVIEW',),
     'UNDER_REVIEW': ('ON_HOLD', 'DISPATCHED', 'INVALID'),
     'ON_HOLD': ('UNDER_REVIEW', 'DISPATCHED', 'CLOSED', 'INVALID'),
-    'DISPATCHED': ('RESOLVED', 'ON_HOLD', 'INVALID'),
+    'DISPATCHED': ('ONGOING', 'RESOLVED', 'ON_HOLD', 'INVALID'),
+    'ONGOING': ('RESOLVED', 'ON_HOLD'),
     'RESOLVED': ('CLOSED',),
     'CLOSED': (),
     'INVALID': (),
@@ -50,6 +52,7 @@ class HazardReports(models.Model):
 
         # Phase 3: Action
         DISPATCHED = 'DISPATCHED', 'Dispatched' #'Dispatched Engineers'
+        ONGOING = 'ONGOING', 'Ongoing' #'Crew on Site — Works in Progress'
 
         # Phase 4: Resolution and Closure
         RESOLVED = 'RESOLVED', 'Resolved' #'Issue is solved but needs user verification'
@@ -66,6 +69,7 @@ class HazardReports(models.Model):
                 self.ON_HOLD: 2,
 
                 self.DISPATCHED: 3,
+                self.ONGOING: 3,
 
                 self.RESOLVED: 4,
                 self.CLOSED: 4,

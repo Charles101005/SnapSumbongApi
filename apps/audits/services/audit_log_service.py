@@ -218,6 +218,44 @@ class AuditLogService:
         )
 
     @staticmethod
+    def log_report_transfer(
+            *,
+            actor: Users,
+            previous_assignee: Users|None,
+            new_assignee: Users,
+            remarks: str|None=None,
+            report: HazardReports,
+    ) -> None:
+        if isinstance(remarks, str):
+            remarks = remarks.strip()
+
+        payload = {
+            "assignment_change": {
+                "from": previous_assignee.email if previous_assignee else None,
+                "to": new_assignee.email,
+            },
+            "remarks": remarks,
+        }
+
+        actor_str = actor.user_number
+        previous_str = previous_assignee.user_number if previous_assignee else "Unassigned"
+        description = (
+            f"REPORT {report.report_number} was transferred from {previous_str} to {new_assignee.user_number} by {actor_str}"
+        )
+
+        if remarks:
+            description += f" with the remarks: \"{remarks}\""
+
+        AuditLogService._log(
+            actor_id=actor.user_id,
+            action=AuditLogs.ActionType.TRANSFER,
+            module=AuditLogs.ModuleType.REPORT,
+            description=description,
+            payload=payload,
+            target_object=report
+        )
+
+    @staticmethod
     def log_report_severity_change(
             *,
             actor: Users,

@@ -12,6 +12,7 @@ class AuditLogs(models.Model):
         DEACTIVATE = "DEACTIVATE", "Deactivated an account"
         STATUS_CHANGE = "STATUS_CHANGE", "Status changed on a hazard report"
         SEVERITY_CHANGE = "SEVERITY_CHANGE", "Severity changed on a hazard report"
+        TRANSFER = "TRANSFER", "Transferred a hazard report to another officer"
         WARNING = "WARNING", "Warning issued to a citizen account"
         BAN = "BAN", "Banned a citizen account"
         UNBAN = "UNBAN", "Unbanned a citizen account"

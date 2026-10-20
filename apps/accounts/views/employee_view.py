@@ -73,6 +73,33 @@ class EmployeeListView(APIView):
         )
 
 
+class EmployeeHandlersListView(APIView):
+    # Active staff eligible to receive (or be transferred) hazard reports —
+    # powers the supervisor's "transfer report to officer" picker.
+    @require_any_perms(
+        AllPermissions.EMPLOYEES.READ_HANDLERS,
+        AllPermissions.EMPLOYEES.READ_ALL,
+    )
+    def get(self, request: Request) -> Response:
+        serializer = UserListRequestSerializer(
+            data=request.query_params,
+            context={"is_staff": True}
+        )
+        serializer.is_valid(raise_exception=True)
+
+        result = UserService.list_assignment_handlers(
+            query_filters=serializer.validated_data
+        )
+
+        return DomainResultResponse(result).respond_with_pagination(
+            request=request,
+            pagination_class=SmallListPagination,
+            serializer_class=UserListResponseSerializer,
+            serializer_context={"is_staff": True},
+            success_status_code=status.HTTP_200_OK
+        )
+
+
 class EmployeeDetailView(APIView):
     @require_perm(AllPermissions.EMPLOYEES.READ_ALL)
     def get(self, request: Request, user_number: str) -> Response:

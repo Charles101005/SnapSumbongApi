@@ -183,6 +183,33 @@ class UserService:
         return queryset.order_by('active_report', 'created_at').first()
 
     @staticmethod
+    def list_assignment_handlers(query_filters: dict[str, Any]|None=None) -> DomainResult[Users]:
+        # Eligible transfer targets match the auto-assignment pool: active
+        # staff whose role can update assigned reports.
+        queryset = Users.objects.filter(
+            is_staff=True,
+            is_active=True,
+            role__permissions__permission_name=AllPermissions.REPORTS.UPDATE_ASSIGNED.name,
+        ).select_related(
+            "role"
+        ).distinct()
+
+        search_query = (query_filters or {}).get("q")
+        if search_query:
+            search_tokens = search_query.strip().split()
+
+            for token in search_tokens:
+                queryset = queryset.filter(
+                    Q(user_number__icontains=token) |
+                    Q(email__icontains=token) |
+                    Q(last_name__icontains=token) |
+                    Q(first_name__icontains=token) |
+                    Q(middle_name__icontains=token)
+                )
+
+        return DomainResult.success(queryset.order_by("last_name", "first_name"))
+
+    @staticmethod
     @transaction.atomic
     def authenticated_change_password(
             *,

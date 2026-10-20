@@ -61,6 +61,7 @@ class AllDefaultRoles:
         is_protected=False,
         permissions=(
             AllPermissions.REPORTS.READ_ALL,
+            AllPermissions.REPORTS.ASSIGN,
 
             AllPermissions.USERS.READ_OWN,
             AllPermissions.USERS.UPDATE_OWN,

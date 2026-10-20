@@ -45,10 +45,16 @@ MandatoryRemarksStatusError = DomainError(
     error_code="MANDATORY_REMARKS_STATUS",
 )
 
-SeverityRequiredForReviewError = DomainError(
-    detail="A severity (P1-P5) is required before moving a report to Under Review.",
+AssignedStatusTransitionError = DomainError(
+    detail="An Assigned report can only move to Under Review.",
     status_code=status.HTTP_400_BAD_REQUEST,
-    error_code="SEVERITY_REQUIRED_FOR_REVIEW",
+    error_code="ASSIGNED_STATUS_TRANSITION",
+)
+
+MandatorySeverityStatusError = DomainError(
+    detail="A severity (P1-P5) is required when moving a report out of Under Review to On-Hold or Dispatched.",
+    status_code=status.HTTP_400_BAD_REQUEST,
+    error_code="MANDATORY_SEVERITY_STATUS",
 )
 
 ReportNotResolvedError = DomainError(
@@ -61,4 +67,22 @@ ValidatorNameRequiredError = DomainError(
     detail="The name of the DO 47 validator is required when transitioning to resolved status.",
     status_code=status.HTTP_400_BAD_REQUEST,
     error_code="VALIDATOR_NAME_REQUIRED",
+)
+
+ReportNotTransferableError = DomainError(
+    detail="Only open reports can be transferred. This report has already been resolved or closed.",
+    status_code=status.HTTP_409_CONFLICT,
+    error_code="REPORT_NOT_TRANSFERABLE",
+)
+
+InvalidTransferTargetError = DomainError(
+    detail="The selected account is not an active officer eligible to handle reports.",
+    status_code=status.HTTP_400_BAD_REQUEST,
+    error_code="INVALID_TRANSFER_TARGET",
+)
+
+AlreadyAssignedToTargetError = DomainError(
+    detail="The report is already assigned to the selected officer.",
+    status_code=status.HTTP_409_CONFLICT,
+    error_code="ALREADY_ASSIGNED_TO_TARGET",
 )

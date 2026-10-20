@@ -9,10 +9,11 @@ from apps.accounts.tests.factories import UserFactory
     "status,expected",
     [
         (HazardReports.Status.NEW, ["Under Review", "Invalid"]),
-        (HazardReports.Status.ASSIGNED, ["Under Review", "Invalid"]),
+        (HazardReports.Status.ASSIGNED, ["Under Review"]),
         (HazardReports.Status.UNDER_REVIEW, ["On-Hold", "Dispatched", "Invalid"]),
         (HazardReports.Status.ON_HOLD, ["Under Review", "Dispatched", "Closed", "Invalid"]),
-        (HazardReports.Status.DISPATCHED, ["Resolved", "On-Hold", "Invalid"]),
+        (HazardReports.Status.DISPATCHED, ["Ongoing", "Resolved", "On-Hold", "Invalid"]),
+        (HazardReports.Status.ONGOING, ["Resolved", "On-Hold"]),
         (HazardReports.Status.RESOLVED, ["Closed"]),
         (HazardReports.Status.CLOSED, []),
         (HazardReports.Status.INVALID, []),

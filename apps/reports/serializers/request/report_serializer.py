@@ -108,3 +108,10 @@ class UpdateReportRequestSerializer(serializers.Serializer):
         min_length=1,
         max_length=settings.STORAGE_CONFIG['MAX_SIGNATURE_COUNT'],
     )
+
+
+class TransferReportRequestSerializer(serializers.Serializer):
+    # Target officer, identified the same way staff APIs identify users.
+    assigned_to = serializers.CharField(max_length=20)
+    # Optional audit note; does not overwrite the report's own remarks.
+    remarks = serializers.CharField(required=False, allow_blank=True, default="")

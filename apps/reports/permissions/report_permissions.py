@@ -42,3 +42,9 @@ class ReportPermissions:
         description='Allows the role to READ all hazard reports',
         module=_module,
     )
+
+    ASSIGN: PermissionDefinition = PermissionDefinition(
+        name='report:assign',
+        description='Allows the role to TRANSFER hazard reports to another officer',
+        module=_module,
+    )

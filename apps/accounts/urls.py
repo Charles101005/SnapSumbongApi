@@ -18,7 +18,7 @@ from .views.profile_view import (
     resend_email_change_view
 )
 from .views.citizen_view import CitizenListView, CitizenDetailView
-from .views.employee_view import EmployeeListView, EmployeeDetailView
+from .views.employee_view import EmployeeListView, EmployeeDetailView, EmployeeHandlersListView
 from .views.lookup_view import lookup_roles_view, lookup_permissions_view
 from .views.role_view import RoleListView, RoleDetailView, duplicate_role_view, deactivate_role_view
 from .views.moderation_view import (
@@ -63,6 +63,7 @@ urlpatterns = [
     path("citizens/<str:user_number>/", CitizenDetailView.as_view(), name="citizen_detail"),
 
     path("employees/", EmployeeListView.as_view(), name="employee_list"),
+    path("employees/handlers/", EmployeeHandlersListView.as_view(), name="employee_handlers"),
     path("employees/<str:user_number>/", EmployeeDetailView.as_view(), name="employee_detail"),
 
     path("lookup/roles/", lookup_roles_view, name="lookup_roles"),

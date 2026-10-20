@@ -53,6 +53,10 @@ class GetReportListResponseSerializer(serializers.Serializer):
     #staff only
     severity = serializers.CharField(min_length=2, max_length=2)
     address = serializers.CharField(max_length=225)
+    # Staff-only: resolution timestamp (null until RESOLVED) so the Analytics
+    # module can compute average resolution time and SLA on-time rates from
+    # the list response without extra detail calls.
+    resolved_at = serializers.DateTimeField(allow_null=True)
 
     def get_category(self, value) -> str:
         return value.category.hazard_name
@@ -67,6 +71,7 @@ class GetReportListResponseSerializer(serializers.Serializer):
         if not user or not user.is_staff:
             data.pop("severity", None)
             data.pop("address", None)
+            data.pop("resolved_at", None)
 
         return data
 
@@ -173,17 +178,46 @@ class GetReportDetailResponseSerializer(serializers.Serializer):
         audit_logs = [
             audit_log
             for audit_log in value.audit_logs.all()
-            if audit_log.action in (AuditLogs.ActionType.CREATE, AuditLogs.ActionType.STATUS_CHANGE)
+            if audit_log.action in (
+                AuditLogs.ActionType.CREATE,
+                AuditLogs.ActionType.STATUS_CHANGE,
+                AuditLogs.ActionType.TRANSFER,
+            )
         ]
         status_timeline = []
 
         for audit_log in audit_logs:
-            payload = audit_log.payload
-            status = payload["initial_status"] if payload.get("initial_status") else payload["status_change"]["to"]
+            payload = audit_log.payload or {}
+            status_change = payload.get("status_change") or {}
+            # TRANSFER logs carry an assignment_change payload instead of a
+            # status change; fall back to the report's current status.
+            status = (
+                payload.get("initial_status")
+                or status_change.get("to")
+                or HazardReports.Status(value.status).label
+            )
 
+            if audit_log.action == AuditLogs.ActionType.CREATE:
+                from_status = None
+                to_status = payload.get("initial_status") or status
+            else:
+                from_status = status_change.get("from")
+                to_status = status_change.get("to")
+
+            actor = audit_log.user
             status_timeline.append({
                 "status": status,
                 "created_at": audit_log.created_at.isoformat(),
+                # Citizen-safe extras for the timeline's "View Details" dialog:
+                # the actor's role only (never name/email) and the payload's
+                # remarks for THIS change. The raw audit description is left
+                # out on purpose — it embeds internal USR- numbers, and
+                # TRANSFER payloads hold staff emails.
+                "action": audit_log.action,
+                "from_status": from_status,
+                "to_status": to_status,
+                "remarks": payload.get("remarks") or None,
+                "performed_by_role": actor.role.role_name if actor and actor.role else None,
             })
         return status_timeline
 
@@ -248,13 +282,23 @@ class GetReportHistoryDetailResponseSerializer(serializers.Serializer):
         audit_logs = [
             audit_log
             for audit_log in value.audit_logs.all()
-            if audit_log.action in (AuditLogs.ActionType.CREATE, AuditLogs.ActionType.STATUS_CHANGE)
+            if audit_log.action in (
+                AuditLogs.ActionType.CREATE,
+                AuditLogs.ActionType.STATUS_CHANGE,
+                AuditLogs.ActionType.TRANSFER,
+            )
         ]
         status_timeline = []
 
         for audit_log in audit_logs:
             payload = audit_log.payload
-            status = payload["initial_status"] if payload.get("initial_status") else payload["status_change"]["to"]
+            # TRANSFER logs carry an assignment_change payload instead of a
+            # status change; fall back to the report's current status.
+            status = (
+                payload.get("initial_status")
+                or payload.get("status_change", {}).get("to")
+                or HazardReports.Status(value.status).label
+            )
 
             user = audit_log.user
             if user:
