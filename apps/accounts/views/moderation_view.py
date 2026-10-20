@@ -6,6 +6,7 @@ from rest_framework.views import APIView
 from shared.results import DomainResultResponse
 from shared.authorization import AllPermissions
 from shared.authorization.decorators import require_perm, require_any_perms
+from shared.ratelimit import rate_limit, StandardRateLimit
 from apps.accounts.services.moderation_service import ModerationService
 from apps.accounts.serializers.request.moderation_serializer import (
     WarnCitizenRequestSerializer,
@@ -19,6 +20,7 @@ from apps.accounts.serializers.response.moderation_serializer import (
 
 
 class WarnCitizenView(APIView):
+    @rate_limit(StandardRateLimit)
     @require_perm(AllPermissions.USERS.WARN)
     def post(self, request: Request, user_number: str) -> Response:
         serializer = WarnCitizenRequestSerializer(data=request.data)
@@ -38,6 +40,7 @@ class WarnCitizenView(APIView):
 
 
 class BanCitizenView(APIView):
+    @rate_limit(StandardRateLimit)
     @require_perm(AllPermissions.USERS.DEACTIVATE_ANY)
     def post(self, request: Request, user_number: str) -> Response:
         serializer = BanCitizenRequestSerializer(data=request.data)
@@ -57,6 +60,7 @@ class BanCitizenView(APIView):
 
 
 class UnbanCitizenView(APIView):
+    @rate_limit(StandardRateLimit)
     @require_perm(AllPermissions.USERS.ACTIVATE_ANY)
     def post(self, request: Request, user_number: str) -> Response:
         serializer = UnbanCitizenRequestSerializer(data=request.data)

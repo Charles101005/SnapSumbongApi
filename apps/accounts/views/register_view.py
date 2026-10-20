@@ -13,12 +13,14 @@ ResendOTPCodeRequestSerializer
 from apps.accounts.serializers.response.verification_serializer import VerificationSessionCreationResponseSerializer
 from apps.accounts.serializers.request.register_serializer import RegistrationRequestSerializer
 from apps.accounts.serializers.response.register_serializer import VerifyRegistrationResponseSerializer
+from shared.ratelimit import rate_limit, StrictRateLimit
 
 
 
 class RegistrationView(APIView):
     permission_classes = [AllowAny]
 
+    @rate_limit(StrictRateLimit)
     def post(self, request: Request) -> Response:
         serializer = RegistrationRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -41,6 +43,7 @@ class RegistrationView(APIView):
 class VerifyRegistrationView(APIView):
     permission_classes = [AllowAny]
 
+    @rate_limit(StrictRateLimit)
     def post(self, request: Request) -> Response:
         serializer = VerifyOTPCodeRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -60,6 +63,7 @@ class VerifyRegistrationView(APIView):
 class ResendRegisterVerificationCodeView(APIView):
     permission_classes = [AllowAny]
 
+    @rate_limit(StrictRateLimit)
     def post(self, request: Request) -> Response:
         serializer = ResendOTPCodeRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)

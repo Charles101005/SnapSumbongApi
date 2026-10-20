@@ -7,6 +7,7 @@ from rest_framework.response import Response
 from shared.results import DomainResultResponse
 from shared.authorization import AllPermissions
 from shared.authorization.decorators import require_perm
+from shared.ratelimit import rate_limit, StandardRateLimit
 from shared.pagination import SmallListPagination
 from apps.accounts.services import RoleService
 from apps.accounts.serializers.request.role_serializer import (
@@ -36,6 +37,7 @@ class RoleListView(APIView):
             success_status_code=status.HTTP_200_OK,
         )
 
+    @rate_limit(StandardRateLimit)
     @require_perm(AllPermissions.ROLES.CREATE)
     def post(self, request: Request) -> Response:
         serializer = CreateUpdateRoleRequestSerializer(data=request.data)
@@ -65,6 +67,7 @@ class RoleDetailView(APIView):
             success_status_code=status.HTTP_200_OK,
         )
 
+    @rate_limit(StandardRateLimit)
     @require_perm(AllPermissions.ROLES.UPDATE_ANY)
     def patch(self, request: Request, role_id: int) -> Response:
         serializer = CreateUpdateRoleRequestSerializer(data=request.data, partial=True)
@@ -82,6 +85,7 @@ class RoleDetailView(APIView):
 
 
 @api_view(["POST"])
+@rate_limit(StandardRateLimit)
 @require_perm(AllPermissions.ROLES.CREATE)
 def duplicate_role_view(request: Request, role_id: int) -> Response:
     result = RoleService.duplicate_role(role_id)
@@ -92,6 +96,7 @@ def duplicate_role_view(request: Request, role_id: int) -> Response:
     )
 
 @api_view(["POST"])
+@rate_limit(StandardRateLimit)
 @require_perm(AllPermissions.ROLES.DEACTIVATE_ANY)
 def deactivate_role_view(request: Request, role_id: int) -> Response:
     result = RoleService.deactivate_role(role_id)

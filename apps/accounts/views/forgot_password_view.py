@@ -19,11 +19,13 @@ from apps.accounts.serializers.response.forgot_password_serializer import (
 VerifyForgotPasswordResponseSerializer,
 ResetPasswordResponseSerializer
 )
+from shared.ratelimit import rate_limit, StrictRateLimit
 
 
 class ForgotPasswordView(APIView):
     permission_classes = [AllowAny]
 
+    @rate_limit(StrictRateLimit)
     def post(self, request: Request) -> Response:
         serializer = ForgotPasswordRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -43,6 +45,7 @@ class ForgotPasswordView(APIView):
 class VerifyForgotPasswordView(APIView):
     permission_classes = [AllowAny]
 
+    @rate_limit(StrictRateLimit)
     def post(self, request: Request) -> Response:
         serializer = VerifyOTPCodeRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -62,6 +65,7 @@ class VerifyForgotPasswordView(APIView):
 class ResendForgotPasswordVerificationCodeView(APIView):
     permission_classes = [AllowAny]
 
+    @rate_limit(StrictRateLimit)
     def post(self, request: Request) -> Response:
         serializer = ResendOTPCodeRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -78,6 +82,7 @@ class ResendForgotPasswordVerificationCodeView(APIView):
 class ResetPasswordView(APIView):
     permission_classes = [AllowAny]
 
+    @rate_limit(StrictRateLimit)
     def post(self, request: Request) -> Response:
         serializer = ResetPasswordRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)

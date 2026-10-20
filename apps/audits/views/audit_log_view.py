@@ -6,6 +6,7 @@ from rest_framework.views import APIView
 from shared.results import DomainResultResponse
 from shared.authorization import AllPermissions
 from shared.authorization.decorators import require_any_perms
+from shared.ratelimit import rate_limit, StandardRateLimit
 from shared.pagination import SmallListPagination
 from apps.audits.services import AuditLogService
 from apps.audits.serializers.request.audit_log_serializer import ListAuditLogRequestSerializer
@@ -16,6 +17,7 @@ from apps.audits.serializers.response.audit_log_serializer import (
 
 
 class AuditLogListView(APIView):
+    @rate_limit(StandardRateLimit)
     @require_any_perms(
         AllPermissions.AUDITS.READ_SYSTEM_LOGS,
         AllPermissions.AUDITS.READ_REPORT_LOGS,

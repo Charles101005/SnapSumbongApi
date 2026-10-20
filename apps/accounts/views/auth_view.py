@@ -13,6 +13,7 @@ from django.conf import settings
 
 from apps.accounts.serializers.request.auth_serializer import LoginRequestSerializer
 from apps.accounts.serializers.response.auth_serializer import CurrentUserResponseSerializer
+from shared.ratelimit import rate_limit, StrictRateLimit, StandardRateLimit
 
 
 def set_refresh_cookie(response: Response, refresh: str) -> None:
@@ -34,6 +35,7 @@ def set_refresh_cookie(response: Response, refresh: str) -> None:
 class LoginView(TokenObtainPairView):
     serializer_class = LoginRequestSerializer
 
+    @rate_limit(StrictRateLimit)
     def post(self, request: Request, *args, **kwargs) -> Response:
         rotate_token(request)
 
@@ -49,6 +51,7 @@ class LoginView(TokenObtainPairView):
 
 @method_decorator(csrf_protect, name='dispatch')
 class RefreshView(TokenRefreshView):
+    @rate_limit(StandardRateLimit)
     def post(self, request: Request, *args, **kwargs) -> Response:
         refresh: str = request.COOKIES.get('refresh')
 
@@ -75,6 +78,7 @@ class RefreshView(TokenRefreshView):
 
 @method_decorator(csrf_protect, name='dispatch')
 class LogoutView(APIView):
+    @rate_limit(StandardRateLimit)
     def post(self, request: Request) -> Response:
         refresh: str = request.COOKIES.get('refresh')
 

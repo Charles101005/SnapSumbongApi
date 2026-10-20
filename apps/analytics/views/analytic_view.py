@@ -6,6 +6,7 @@ from rest_framework import status
 from apps.analytics.services import AnalyticService
 from shared.results import DomainResultResponse
 from shared.authorization.decorators import require_perm, require_any_perms
+from shared.ratelimit import rate_limit, StandardRateLimit
 from shared.authorization import AllPermissions
 from apps.analytics.serializers.response.analytic_serializer import (
     GetReportMetricsResponseSerializer,
@@ -14,6 +15,7 @@ from apps.analytics.serializers.response.analytic_serializer import (
 
 
 @api_view(["GET"])
+@rate_limit(StandardRateLimit)
 @require_any_perms(
     AllPermissions.ANALYTICS.READ_ALL_METRICS,
     AllPermissions.ANALYTICS.READ_ASSIGNED_METRICS,
@@ -28,6 +30,7 @@ def hazard_report_metrics_view(request: Request) -> Response:
     )
 
 @api_view(["GET"])
+@rate_limit(StandardRateLimit)
 @require_perm(AllPermissions.ANALYTICS.READ_EMPLOYEE_METRICS)
 def employee_metrics_view(request: Request, user_number: str) -> Response:
     result = AnalyticService.get_user_activity_metrics(
@@ -40,6 +43,7 @@ def employee_metrics_view(request: Request, user_number: str) -> Response:
     )
 
 @api_view(["GET"])
+@rate_limit(StandardRateLimit)
 @require_perm(AllPermissions.ANALYTICS.READ_CITIZEN_METRICS)
 def citizen_metrics_view(request: Request, user_number: str) -> Response:
     result = AnalyticService.get_user_activity_metrics(
@@ -53,6 +57,7 @@ def citizen_metrics_view(request: Request, user_number: str) -> Response:
 
 
 @api_view(["GET"])
+@rate_limit(StandardRateLimit)
 @require_perm(AllPermissions.ANALYTICS.READ_HANDLER_PERFORMANCE)
 def handler_compliance_view(request: Request) -> Response:
     result = AnalyticService.get_handler_compliance_metrics()

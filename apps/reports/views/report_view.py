@@ -9,6 +9,7 @@ from shared.results import DomainResultResponse
 from shared.authorization.decorators import require_perm, require_any_perms
 from shared.authorization import AllPermissions
 from shared.pagination import SmallListPagination
+from shared.ratelimit import rate_limit, StrictRateLimit, StandardRateLimit
 from apps.reports.serializers.request.report_serializer import (
     ReportImageSignatureRequestSerializer,
     CreateReportRequestSerializer,
@@ -25,6 +26,7 @@ from apps.reports.serializers.response.report_serializer import (
 
 
 class ReportImageSignatureView(APIView):
+    @rate_limit(StandardRateLimit)
     @require_any_perms(
         AllPermissions.REPORTS.CREATE,
         AllPermissions.REPORTS.UPDATE_ASSIGNED
@@ -69,6 +71,7 @@ class ReportListView(APIView):
             success_status_code=status.HTTP_200_OK
         )
 
+    @rate_limit(StrictRateLimit)
     @require_perm(AllPermissions.REPORTS.CREATE)
     def post(self, request: Request) -> Response:
         serializer = CreateReportRequestSerializer(data=request.data)
@@ -93,6 +96,7 @@ class ReportListView(APIView):
 
 
 class ReportConfirmResolutionView(APIView):
+    @rate_limit(StandardRateLimit)
     @require_perm(AllPermissions.REPORTS.UPDATE_OWN)
     def post(self, request: Request, report_number: str) -> Response:
         result = ReportService.confirm_report_resolution(
@@ -120,6 +124,7 @@ class ReportDetailView(APIView):
             success_status_code=status.HTTP_200_OK,
         )
 
+    @rate_limit(StandardRateLimit)
     @require_perm(AllPermissions.REPORTS.UPDATE_ASSIGNED)
     def patch(self, request: Request, report_number: str) -> Response:
         serializer = UpdateReportRequestSerializer(data=request.data, partial=True)

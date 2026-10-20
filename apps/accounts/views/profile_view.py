@@ -8,6 +8,7 @@ from shared.results import DomainResultResponse
 from apps.accounts.services import UserService, EmailChangeService
 from shared.authorization import AllPermissions
 from shared.authorization.decorators import require_perm
+from shared.ratelimit import rate_limit, StrictRateLimit, StandardRateLimit
 from apps.accounts.serializers.response.profile_serializer import (
     GetProfileResponseSerializer,
     GetProfileImageSignatureResponseSerializer,
@@ -26,6 +27,7 @@ from apps.accounts.serializers.response.verification_serializer import (
 
 
 @api_view(['GET'])
+@rate_limit(StandardRateLimit)
 @require_perm(AllPermissions.USERS.UPDATE_OWN)
 def profile_image_signature_view(request: Request) -> Response:
     result = UserService.get_profile_image_upload_credentials(request.user)
@@ -43,6 +45,7 @@ class ProfileView(APIView):
 
         return Response(data=serializer.data, status=status.HTTP_200_OK)
 
+    @rate_limit(StandardRateLimit)
     @require_perm(AllPermissions.USERS.UPDATE_OWN)
     def patch(self, request: Request) -> Response:
         serializer = UpdateProfileRequestSerializer(data=request.data, partial=True, context={'request': request})
@@ -60,6 +63,7 @@ class ProfileView(APIView):
 
 
 @api_view(['POST'])
+@rate_limit(StrictRateLimit)
 @require_perm(AllPermissions.USERS.UPDATE_OWN)
 def change_password(request: Request) -> Response:
     serializer = ChangePasswordRequestSerializer(data=request.data)
@@ -78,6 +82,7 @@ def change_password(request: Request) -> Response:
     )
 
 @api_view(['POST'])
+@rate_limit(StandardRateLimit)
 @require_perm(AllPermissions.USERS.DEACTIVATE_OWN)
 def deactivate_account_view(request: Request) -> Response:
     result = UserService.deactivate_account(request.user)
@@ -88,6 +93,7 @@ def deactivate_account_view(request: Request) -> Response:
 
 
 @api_view(['POST'])
+@rate_limit(StrictRateLimit)
 @require_perm(AllPermissions.USERS.UPDATE_OWN)
 def request_email_change_view(request: Request) -> Response:
     serializer = RequestEmailChangeRequestSerializer(data=request.data, context={'request': request})
@@ -105,6 +111,7 @@ def request_email_change_view(request: Request) -> Response:
 
 
 @api_view(['POST'])
+@rate_limit(StrictRateLimit)
 @require_perm(AllPermissions.USERS.UPDATE_OWN)
 def verify_email_change_view(request: Request) -> Response:
     serializer = VerifyEmailChangeRequestSerializer(data=request.data)
@@ -123,6 +130,7 @@ def verify_email_change_view(request: Request) -> Response:
 
 
 @api_view(['POST'])
+@rate_limit(StrictRateLimit)
 @require_perm(AllPermissions.USERS.UPDATE_OWN)
 def resend_email_change_view(request: Request) -> Response:
     serializer = ResendEmailChangeRequestSerializer(data=request.data)

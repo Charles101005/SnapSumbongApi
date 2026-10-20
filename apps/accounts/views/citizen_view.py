@@ -6,6 +6,7 @@ from rest_framework.views import APIView
 from shared.results import DomainResultResponse
 from shared.authorization import AllPermissions
 from shared.authorization.decorators import require_perm, require_any_perms
+from shared.ratelimit import rate_limit, StandardRateLimit
 from shared.pagination import SmallListPagination
 from apps.accounts.services import UserService
 from apps.accounts.serializers.request.user_serializer import UserUpdateRequestSerializer, UserListRequestSerializer
@@ -55,6 +56,7 @@ class CitizenDetailView(APIView):
             success_status_code=status.HTTP_200_OK,
         )
 
+    @rate_limit(StandardRateLimit)
     @require_any_perms(
         AllPermissions.USERS.ACTIVATE_ANY,
         AllPermissions.USERS.DEACTIVATE_ANY,

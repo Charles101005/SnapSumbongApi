@@ -72,5 +72,11 @@ def check_rate_limit(request: Request, config: RateLimitConfig) -> None:
         request_count = 1
 
     if request_count > config.rate:
-        ttl = cache.ttl(cache_key)
+        try:
+            ttl = cache.ttl(cache_key)
+        except (AttributeError, NotImplementedError):
+            # Not every backend exposes ttl() (e.g. Django's built-in LocMemCache);
+            # fall back to the full configured period as the retry hint.
+            ttl = None
+
         raise Throttled(wait=ttl if ttl and ttl > 0 else config.period)

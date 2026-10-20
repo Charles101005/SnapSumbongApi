@@ -17,5 +17,5 @@ class StandardRateLimit(RateLimitConfig):
 
 @dataclass(frozen=True)
 class StrictRateLimit(RateLimitConfig):
-    rate: int = 5
+    rate: int = 10
     period: int = 60
