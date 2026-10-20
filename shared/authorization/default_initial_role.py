@@ -26,6 +26,7 @@ class AllDefaultRoles:
             AllPermissions.USERS.READ_ALL,
             AllPermissions.USERS.DEACTIVATE_ANY,
             AllPermissions.USERS.ACTIVATE_ANY,
+            AllPermissions.USERS.WARN,
 
             AllPermissions.EMPLOYEES.CREATE,
             AllPermissions.EMPLOYEES.READ_ALL,
@@ -33,19 +34,19 @@ class AllDefaultRoles:
             AllPermissions.EMPLOYEES.ASSIGN_ROLE,
             AllPermissions.EMPLOYEES.DEACTIVATE_ANY,
             AllPermissions.EMPLOYEES.ACTIVATE_ANY,
+            AllPermissions.EMPLOYEES.READ_HANDLERS,
 
             AllPermissions.ROLES.CREATE,
             AllPermissions.ROLES.READ_ALL,
             AllPermissions.ROLES.UPDATE_ANY,
             AllPermissions.ROLES.DEACTIVATE_ANY,
 
-            AllPermissions.ANALYTICS.READ_EMPLOYEE_METRICS,
-            AllPermissions.ANALYTICS.READ_CITIZEN_METRICS,
+            AllPermissions.ANALYTICS.READ_HANDLER_PERFORMANCE,
+            AllPermissions.ANALYTICS.READ_ALL_METRICS,
+            AllPermissions.ANALYTICS.READ_DASHBOARD,
 
             AllPermissions.AUDITS.READ_REPORT_LOGS,
             AllPermissions.AUDITS.READ_SYSTEM_LOGS,
-
-            AllPermissions.USERS.WARN,
         ),
         mandatory_permissions=(
             AllPermissions.ROLES.READ_ALL.name,

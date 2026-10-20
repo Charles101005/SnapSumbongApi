@@ -31,7 +31,6 @@ def hazard_report_metrics_view(request: Request) -> Response:
 
 @api_view(["GET"])
 @rate_limit(StandardRateLimit)
-@require_perm(AllPermissions.ANALYTICS.READ_EMPLOYEE_METRICS)
 def employee_metrics_view(request: Request, user_number: str) -> Response:
     result = AnalyticService.get_user_activity_metrics(
         user_number=user_number,
@@ -44,7 +43,6 @@ def employee_metrics_view(request: Request, user_number: str) -> Response:
 
 @api_view(["GET"])
 @rate_limit(StandardRateLimit)
-@require_perm(AllPermissions.ANALYTICS.READ_CITIZEN_METRICS)
 def citizen_metrics_view(request: Request, user_number: str) -> Response:
     result = AnalyticService.get_user_activity_metrics(
         user_number=user_number,
