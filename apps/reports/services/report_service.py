@@ -39,9 +39,42 @@ from apps.accounts.services import UserService
 from apps.audits.services import AuditLogService
 from shared.authorization.service import AuthorizationService
 from shared.authorization import AllPermissions
+from external.email import EmailService
 
 
 class ReportService:
+    @staticmethod
+    def _format_submitted_at(report: HazardReports) -> str:
+        return timezone.localtime(report.created_at).strftime("%B %d, %Y at %I:%M %p")
+
+    @staticmethod
+    def _enqueue_status_update_email(
+            *,
+            report: HazardReports,
+            old_status_label: str,
+            new_status_label: str,
+            remarks: str = ""
+    ) -> None:
+        # Anonymous reports stay anonymous to other users only -- the
+        # reporter still gets updates on their own submission.
+        if not report.reported_by:
+            return
+
+        transaction.on_commit(
+            lambda r=report, o=old_status_label, n=new_status_label, rem=remarks:
+                EmailService.send_report_status_update(
+                    to_email=r.reported_by.email,
+                    to_first_name=r.reported_by.first_name,
+                    report_number=r.report_number,
+                    category=r.category.hazard_name,
+                    location=r.address,
+                    submitted_at=ReportService._format_submitted_at(r),
+                    old_status=o,
+                    new_status=n,
+                    remarks=rem,
+                )
+        )
+
     @staticmethod
     @transaction.atomic
     def _process_unassigned_reports() -> None:
@@ -208,6 +241,18 @@ class ReportService:
                 "assigned_to": assigned_staff.email if assigned_staff else None,
             },
         )
+
+        if report.reported_by:
+            transaction.on_commit(
+                lambda r=report: EmailService.send_report_successful_submission(
+                    to_email=r.reported_by.email,
+                    to_first_name=r.reported_by.first_name,
+                    report_number=r.report_number,
+                    category=r.category.hazard_name,
+                    location=r.address,
+                    submitted_at=ReportService._format_submitted_at(r),
+                )
+            )
 
         return DomainResult.success(report)
 
@@ -404,6 +449,13 @@ class ReportService:
                 report=report
             )
 
+            ReportService._enqueue_status_update_email(
+                report=report,
+                old_status_label=old_status.label,
+                new_status_label=report.status.label,
+                remarks=remarks or "",
+            )
+
         if new_severity_str:
             if new_severity_str not in HazardReports.Severity:
                 raise InvalidReportSeverityException()
@@ -504,6 +556,12 @@ class ReportService:
             new_status=report.status.label,
             remarks="Resolution confirmed by the reporter.",
             report=report,
+        )
+
+        ReportService._enqueue_status_update_email(
+            report=report,
+            old_status_label=old_status.label,
+            new_status_label=report.status.label,
         )
 
         return DomainResult.success(None)

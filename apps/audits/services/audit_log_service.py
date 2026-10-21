@@ -24,8 +24,8 @@ class AuditLogService:
             description: str,
             payload: dict[str, Any]|None=None,
             target_object: HazardReports|Users|Roles
-    ) -> None:
-        AuditLogs.objects.create(
+    ) -> AuditLogs:
+        return AuditLogs.objects.create(
             user_id=actor_id,
             action=action,
             module=module,
@@ -143,7 +143,7 @@ class AuditLogService:
             banned_user: Users,
             reason: str,
             fast_track_report_number: str|None=None,
-    ) -> None:
+    ) -> AuditLogs:
         description = (
             f"{banned_user.user_number} ({banned_user.role.role_name}) was banned by {actor.user_number}"
             f" with the reason: \"{reason}\""
@@ -151,7 +151,7 @@ class AuditLogService:
         if fast_track_report_number:
             description += f" (fast-track evidence: {fast_track_report_number})"
 
-        AuditLogService._log(
+        return AuditLogService._log(
             actor_id=actor.user_id,
             action=AuditLogs.ActionType.BAN,
             module=AuditLogs.ModuleType.USER,

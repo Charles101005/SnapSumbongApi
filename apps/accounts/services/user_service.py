@@ -25,6 +25,7 @@ from shared.authorization import AllPermissions
 from shared.results import DomainResult
 from apps.accounts.services import AuthService
 from external.storage import StorageService, UploadIntent
+from external.email import EmailService
 
 
 class UserService:
@@ -134,8 +135,17 @@ class UserService:
             }
         )
 
-        #TODO: SnapSumbong - Email the password in a transaction on-commit
-        print("Password:", temp_password)
+        # Only sent once the surrounding transaction commits: a rolled-back
+        # staff creation must not leak the temporary password by email.
+        transaction.on_commit(
+            lambda: EmailService.send_employee_creation_temporary_password(
+                to_email=user.email,
+                to_first_name=user.first_name,
+                user_number=user.user_number,
+                assigned_role=staff_role.role_name,
+                temp_password=temp_password,
+            )
+        )
 
         return DomainResult.success(user)
 
@@ -232,10 +242,19 @@ class UserService:
         return DomainResult.error(IncorrectAccountCredentialsError)
 
     @staticmethod
+    @transaction.atomic
     def deactivate_account(user: Users) -> DomainResult[None]:
         if user.is_active:
             user.is_active = False
             user.save(update_fields=["is_active", "updated_at"])
+
+            transaction.on_commit(
+                lambda: EmailService.send_user_self_deactivation(
+                    to_email=user.email,
+                    to_first_name=user.first_name,
+                    full_name=user.get_full_name(),
+                )
+            )
 
         return DomainResult.success(None)
 

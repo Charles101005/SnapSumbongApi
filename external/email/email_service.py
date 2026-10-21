@@ -148,6 +148,23 @@ class EmailService:
         )
 
     @classmethod
+    def send_email_change_otp(
+            cls,
+            *,
+            to_email: str,
+            to_first_name: str,
+            otp_code: str,
+            expiry_minutes: str|int
+    ) -> bool:
+        return cls._send_verification_otp(
+            verification_type="Email Change",
+            to_email=to_email,
+            to_first_name=to_first_name,
+            otp_code=otp_code,
+            expiry_minutes=expiry_minutes
+        )
+
+    @classmethod
     def send_report_successful_submission(
             cls,
             *,

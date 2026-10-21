@@ -9,9 +9,10 @@ from django.db import transaction
 from django.contrib.auth.hashers import check_password, make_password
 from django.utils import timezone
 
-from apps.accounts.models import VerificationRequest
+from apps.accounts.models import VerificationRequest, Users
 from apps.accounts.exceptions.verification_exception import VerificationNotFoundException
 from shared.results import DomainResult
+from external.email import EmailService
 from apps.accounts.domain_errors.verification_error import (
         VerificationInProgressError,
         VerificationExpiredError,
@@ -32,9 +33,37 @@ class VerificationService:
         return make_password(otp)
 
     @staticmethod
-    def _send_otp(*, email: str, purpose: str, otp: str) -> None:
-        # TODO: SnapSumbong - Connect to Email Integration
-        print(f"{email=}\n{purpose=}\n{otp=}")
+    def _resolve_first_name(*, email: str, purpose: str, payload: dict) -> str:
+        # A REGISTRATION OTP is sent before the account exists -- the name
+        # only lives in the temp verification payload. Every other purpose
+        # belongs to an existing account, so read it from the user row.
+        if purpose == VerificationRequest.VerificationPurpose.REGISTRATION:
+            return payload.get('first_name') or "there"
+
+        user = Users.objects.get_by_active_email_or_none(email=email)
+        return user.first_name if user else "there"
+
+    @staticmethod
+    def _send_otp(*, email: str, purpose: str, otp: str, first_name: str) -> None:
+        expiry_minutes = int(
+            VerificationService._config()['VERIFICATION_REQUEST_LIFETIME'].total_seconds() // 60
+        )
+
+        send_method = {
+            VerificationRequest.VerificationPurpose.REGISTRATION:
+                EmailService.send_registration_otp,
+            VerificationRequest.VerificationPurpose.FORGOT_PASSWORD:
+                EmailService.send_password_reset_otp,
+            VerificationRequest.VerificationPurpose.EMAIL_CHANGE:
+                EmailService.send_email_change_otp,
+        }[purpose]
+
+        send_method(
+            to_email=email,
+            to_first_name=first_name,
+            otp_code=otp,
+            expiry_minutes=expiry_minutes,
+        )
 
     @staticmethod
     def _generate_otp() -> str:
@@ -120,7 +149,12 @@ class VerificationService:
             lambda: VerificationService._send_otp(
                 email=email,
                 purpose=purpose,
-                otp=otp
+                otp=otp,
+                first_name=VerificationService._resolve_first_name(
+                    email=email,
+                    purpose=purpose,
+                    payload=payload
+                ),
         ))
 
         return DomainResult.success(verification)
@@ -228,6 +262,11 @@ class VerificationService:
                 email=email,
                 purpose=purpose,
                 otp=otp,
+                first_name=VerificationService._resolve_first_name(
+                    email=email,
+                    purpose=purpose,
+                    payload=verification.payload
+                ),
         ))
 
         return DomainResult.success(verification)
