@@ -2,7 +2,7 @@ import string
 import secrets
 import hmac
 import hashlib
-from typing import Any
+from typing import Any, ClassVar
 from datetime import date
 
 from django.contrib.auth.hashers import make_password
@@ -364,6 +364,38 @@ class UserService:
 
         return DomainResult.success(user)
 
+    _CHANGE_FIELD_LABELS: ClassVar[dict[str, str]] = {
+        "email": "Email",
+        "first_name": "First Name",
+        "last_name": "Last Name",
+        "middle_name": "Middle Name",
+        "contact_number": "Contact Number",
+        "birth_date": "Birth Date",
+        "gender": "Gender",
+        "street_address": "Street Address",
+        "region_code": "Region",
+        "province_code": "Province",
+        "city_code": "City",
+        "barangay_code": "Barangay",
+        "is_active": "Account Status",
+    }
+
+    @staticmethod
+    def _describe_changes(changes: dict[str, dict[str, Any]]) -> str:
+        parts: list[str] = []
+        for field, change in changes.items():
+            if field == "role":
+                from_role = (change.get("from") or {}).get("role_name", "Unknown")
+                to_role = (change.get("to") or {}).get("role_name", "Unknown")
+                parts.append(f"Role ({from_role} → {to_role})")
+            else:
+                label = UserService._CHANGE_FIELD_LABELS.get(
+                    field,
+                    field.replace("_", " ").title(),
+                )
+                parts.append(label)
+        return ", ".join(parts)
+
     @staticmethod
     @transaction.atomic
     def update_staff(
@@ -444,7 +476,7 @@ class UserService:
             updated_fields.append("updated_at")
             user.save(update_fields=updated_fields)
 
-            changed_fields = ", ".join(changes.keys())
+            changed_summary = UserService._describe_changes(changes)
             is_deactivation = changes.get("is_active", {}).get("to") is False
 
             if is_deactivation:
@@ -455,7 +487,7 @@ class UserService:
                     payload_override={"changes": changes},
                     description_override=(
                         f"EMPLOYEE {user.user_number} was deactivated by {actor.user_number}"
-                        f" (fields: {changed_fields})"
+                        f" (changed: {changed_summary})"
                     ),
                 )
             else:
@@ -465,8 +497,8 @@ class UserService:
                     target_object=user,
                     description=(
                         f"EMPLOYEE {user.user_number} was updated by {actor.user_number}"
-                        f" (fields: {changed_fields})"
-                    )[:255],
+                        f" (changed: {changed_summary})"
+                    ),
                     payload={"changes": changes},
                 )
 

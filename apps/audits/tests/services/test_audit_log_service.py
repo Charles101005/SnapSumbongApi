@@ -331,6 +331,136 @@ class TestLogReportStatusChangeOverrides:
 
 
 @pytest.mark.django_db
+class TestDescriptionTruncation:
+    def test_short_description_is_left_unchanged(self):
+        actor = UserFactory()
+        warned = UserFactory()
+
+        AuditLogService.log_warning(
+            actor=actor,
+            warned_user=warned,
+            reason="Short reason.",
+            warning_number="WARN-TEST-0003",
+        )
+
+        log = AuditLogs.objects.get(action=AuditLogs.ActionType.WARNING)
+        assert log.description == (
+            f"{warned.user_number} was issued a warning by {actor.user_number}"
+            f' with the reason: "Short reason."'
+        )
+
+    def test_long_description_is_cut_to_max_length_ending_with_ellipsis(self):
+        actor = UserFactory()
+        warned = UserFactory()
+        reason = "R" * 400
+
+        AuditLogService.log_warning(
+            actor=actor,
+            warned_user=warned,
+            reason=reason,
+            warning_number="WARN-TEST-0004",
+        )
+
+        log = AuditLogs.objects.get(action=AuditLogs.ActionType.WARNING)
+        max_length = AuditLogs._meta.get_field("description").max_length
+
+        assert len(log.description) == max_length
+        assert log.description.endswith("...")
+        # The user-supplied text must still be fully recoverable from payload
+        assert log.payload["reason"] == reason
+
+    def test_long_status_remarks_are_truncated_but_kept_whole_in_payload(self):
+        actor = UserFactory()
+        remarks = "Needs DO 47 clearance. " * 20
+
+        AuditLogService.log_report_status_change(
+            actor=actor,
+            old_status="Under Review",
+            new_status="On-Hold",
+            remarks=remarks,
+            report=HazardReportFactory(),
+        )
+
+        log = AuditLogs.objects.get(action=AuditLogs.ActionType.STATUS_CHANGE)
+        max_length = AuditLogs._meta.get_field("description").max_length
+
+        assert len(log.description) == max_length
+        assert log.description.endswith("...")
+        assert log.payload["remarks"] == remarks.strip()
+
+
+@pytest.mark.django_db
+class TestSeverityUnsetDisplay:
+    def test_unset_old_severity_renders_unset_and_payload_keeps_none(self):
+        actor = UserFactory()
+        report = HazardReportFactory()
+
+        AuditLogService.log_report_severity_change(
+            actor=actor,
+            old_severity=None,
+            new_severity="P2",
+            report=report,
+        )
+
+        log = AuditLogs.objects.get(action=AuditLogs.ActionType.SEVERITY_CHANGE)
+        assert f"from Unset to P2 by {actor.user_number}" in log.description
+        assert "None" not in log.description
+        assert log.payload["severity_change"] == {"from": None, "to": "P2"}
+
+
+@pytest.mark.django_db
+class TestLogDeactivateReasonPayload:
+    def test_reason_is_kept_in_payload_without_description_override(self):
+        actor = UserFactory()
+        target = UserFactory()
+
+        AuditLogService.log_deactivate(
+            actor=actor,
+            module=AuditLogs.ModuleType.USER,
+            target_object=target,
+            reason="Dormant account.",
+        )
+
+        log = AuditLogs.objects.get(action=AuditLogs.ActionType.DEACTIVATE)
+        assert log.payload == {"reason": "Dormant account."}
+
+    def test_reason_is_kept_in_payload_even_with_description_override(self):
+        actor = UserFactory()
+        target = UserFactory()
+
+        AuditLogService.log_deactivate(
+            actor=actor,
+            module=AuditLogs.ModuleType.USER,
+            target_object=target,
+            reason="Dormant account.",
+            description_override="Deactivated by bulk job.",
+        )
+
+        log = AuditLogs.objects.get(action=AuditLogs.ActionType.DEACTIVATE)
+        assert log.payload == {"reason": "Dormant account."}
+        assert log.description == "Deactivated by bulk job."
+
+    def test_payload_override_is_not_mutated_in_place(self):
+        actor = UserFactory()
+        override = {"changes": {"is_active": {"from": True, "to": False}}}
+
+        AuditLogService.log_deactivate(
+            actor=actor,
+            module=AuditLogs.ModuleType.USER,
+            target_object=UserFactory(),
+            reason="Dormant account.",
+            payload_override=override,
+        )
+
+        log = AuditLogs.objects.get(action=AuditLogs.ActionType.DEACTIVATE)
+        assert log.payload == {
+            "changes": {"is_active": {"from": True, "to": False}},
+            "reason": "Dormant account.",
+        }
+        assert "reason" not in override
+
+
+@pytest.mark.django_db
 class TestListAuthorizedAuditLogs:
     def test_system_admin_sees_every_module(self, system_admin_role):
         system_log, report_log = _seed_modules()

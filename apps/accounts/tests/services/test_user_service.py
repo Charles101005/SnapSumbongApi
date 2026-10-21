@@ -742,6 +742,61 @@ class TestUpdateStaffAuditLogging:
             'to': {'role_id': new_role.role_id, 'role_name': new_role.role_name},
         }
 
+    def test_info_update_description_uses_friendly_field_labels(
+        self, system_admin_role, report_officer_role, mocker,
+    ):
+        mocker.patch('shared.authorization.service.AuthorizationService.require_perm')
+        actor = UserFactory(role=system_admin_role, is_staff=True)
+        target = UserFactory(role=report_officer_role, is_staff=True)
+
+        UserService.update_staff(
+            actor=actor,
+            user_number=target.user_number,
+            fields={'first_name': 'Updated', 'contact_number': '09990001111'},
+        )
+
+        log = AuditLogs.objects.get(action=AuditLogs.ActionType.UPDATE)
+        assert "(changed: First Name, Contact Number)" in log.description
+        # Raw column names must not leak into the human-readable description
+        assert "first_name" not in log.description
+
+    def test_role_reassignment_description_names_both_roles(
+        self, system_admin_role, report_officer_role, mocker,
+    ):
+        mocker.patch('shared.authorization.service.AuthorizationService.require_perm')
+        actor = UserFactory(role=system_admin_role, is_staff=True)
+        target = UserFactory(role=report_officer_role, is_staff=True)
+        new_role = RoleFactory(role_name='Reassignment Target', role_code='REASSIGNMENT_TARGET')
+
+        UserService.update_staff(
+            actor=actor,
+            user_number=target.user_number,
+            fields={'role_id': new_role.role_id},
+        )
+
+        log = AuditLogs.objects.get(action=AuditLogs.ActionType.UPDATE)
+        assert (
+            f"(changed: Role ({report_officer_role.role_name} → {new_role.role_name}))"
+            in log.description
+        )
+
+    def test_deactivation_description_uses_friendly_field_labels(
+        self, system_admin_role, report_officer_role, mocker,
+    ):
+        mocker.patch('shared.authorization.service.AuthorizationService.require_perm')
+        actor = UserFactory(role=system_admin_role, is_staff=True)
+        target = UserFactory(role=report_officer_role, is_staff=True)
+
+        UserService.update_staff(
+            actor=actor,
+            user_number=target.user_number,
+            fields={'is_active': False},
+        )
+
+        log = AuditLogs.objects.get(action=AuditLogs.ActionType.DEACTIVATE)
+        assert "(changed: Account Status)" in log.description
+        assert "is_active" not in log.description
+
     def test_no_change_logs_nothing(self, system_admin_role, report_officer_role):
         actor = UserFactory(role=system_admin_role, is_staff=True)
         target = UserFactory(role=report_officer_role, is_staff=True, first_name='Same')

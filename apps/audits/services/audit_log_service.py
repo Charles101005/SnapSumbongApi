@@ -16,6 +16,18 @@ class AuditLogService:
     ModuleType = AuditLogs.ModuleType
 
     @staticmethod
+    def _truncate_description(description: str|None) -> str|None:
+        if not description:
+            return description
+
+        max_length = AuditLogs._meta.get_field("description").max_length
+        if len(description) <= max_length:
+            return description
+
+        # Keep the total within max_length: (max_length - 3) chars + "..."
+        return description[:max_length - 3] + "..."
+
+    @staticmethod
     def _log(
             *,
             actor_id: int|None,
@@ -29,7 +41,7 @@ class AuditLogService:
             user_id=actor_id,
             action=action,
             module=module,
-            description=description,
+            description=AuditLogService._truncate_description(description),
             payload=payload if payload else {},
             target_object=target_object
         )
@@ -88,7 +100,10 @@ class AuditLogService:
             description_override: str|None=None,
     ) -> None:
         description = description_override
-        payload = payload_override
+        payload = dict(payload_override) if payload_override else {}
+
+        if reason:
+            payload.setdefault("reason", reason)
 
         if not description:
             if isinstance(target_object, Users):
@@ -280,8 +295,12 @@ class AuditLogService:
         if not description:
             actor_str = actor.user_number
 
+            old_severity_display = old_severity if old_severity else "Unset"
+            new_severity_display = new_severity if new_severity else "Unset"
+
             description = (
-                f"REPORT {report.report_number} severity was changed from {old_severity} to {new_severity} by {actor_str}"
+                f"REPORT {report.report_number} severity was changed"
+                f" from {old_severity_display} to {new_severity_display} by {actor_str}"
             )
 
         AuditLogService._log(
