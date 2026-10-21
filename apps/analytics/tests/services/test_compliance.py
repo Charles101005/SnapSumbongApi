@@ -260,6 +260,50 @@ class TestHandlerComplianceMetrics:
         names = [row["handler_name"] for row in metrics["handlers"]]
         assert names.index(_name(strong)) < names.index(_name(weak))
 
+    def test_photolog_half_miss_scores_seventies_satisfactory(self, report_officer_role):
+        # SLA 100 (60) + photolog 50 (25) + validation 0 (15) = 72.5.
+        handler = UserFactory(role=report_officer_role, is_staff=True)
+        _resolved_report(handler, full_photolog=True)
+        _resolved_report(handler, full_photolog=False)
+
+        metrics = AnalyticService.get_handler_compliance_metrics().value
+
+        row = _handler_row(metrics, handler)
+        assert row["sla_on_time_pct"] == 100.0
+        assert row["photolog_pct"] == 50.0
+        assert row["validation_pct"] == 0.0
+        assert row["score"] == 72.5
+        assert row["rating"] == "Satisfactory"
+
+    def test_confirmed_but_unresolved_row_scores_photolog_without_sla(
+        self, report_officer_role
+    ):
+        # A row confirmed without a resolve timestamp cannot be judged for
+        # SLA (no resolved_at to compare against due_at), but its photolog
+        # and validation obligations still apply: photolog 100 (25) +
+        # validation 0 (15) renormalizes to 62.5.
+        handler = UserFactory(role=report_officer_role, is_staff=True)
+        now = timezone.now()
+        report = HazardReportFactory(
+            status=HazardReports.Status.CLOSED,
+            assigned_to=handler,
+            due_at=now + timedelta(days=1),
+            resolved_at=None,
+            confirmed_at=now,
+        )
+        _add_photo(report, ReportImages.PhotoType.DURING)
+        _add_photo(report, ReportImages.PhotoType.AFTER)
+
+        metrics = AnalyticService.get_handler_compliance_metrics().value
+
+        row = _handler_row(metrics, handler)
+        assert row["resolved_count"] == 1
+        assert row["sla_on_time_pct"] is None
+        assert row["photolog_pct"] == 100.0
+        assert row["validation_pct"] == 0.0
+        assert row["score"] == 62.5
+        assert row["rating"] == "Unsatisfactory"
+
 
 @pytest.mark.django_db
 class TestComplianceEndpoint:
