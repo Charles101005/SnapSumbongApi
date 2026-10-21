@@ -7,15 +7,15 @@ from shared.utils import model_number_generator
 
 class AuditLogs(models.Model):
     class ActionType(models.TextChoices):
-        CREATE = "CREATE", "Creation of a new entity"
-        UPDATE = "UPDATE", "Updated an existing entity"
-        DEACTIVATE = "DEACTIVATE", "Deactivated an account"
-        STATUS_CHANGE = "STATUS_CHANGE", "Status changed on a hazard report"
-        SEVERITY_CHANGE = "SEVERITY_CHANGE", "Severity changed on a hazard report"
-        TRANSFER = "TRANSFER", "Transferred a hazard report to another officer"
-        WARNING = "WARNING", "Warning issued to a citizen account"
-        BAN = "BAN", "Banned a citizen account"
-        UNBAN = "UNBAN", "Unbanned a citizen account"
+        CREATE = "CREATE", "Created"
+        UPDATE = "UPDATE", "Updated"
+        DEACTIVATE = "DEACTIVATE", "Deactivated"
+        STATUS_CHANGE = "STATUS_CHANGE", "Status changed"
+        SEVERITY_CHANGE = "SEVERITY_CHANGE", "Severity changed"
+        TRANSFER = "TRANSFER", "Report transferred"
+        WARNING = "WARNING", "Warning issued"
+        BAN = "BAN", "Account banned"
+        UNBAN = "UNBAN", "Account unbanned"
 
     class ModuleType(models.TextChoices):
         USER = "USER", "User"

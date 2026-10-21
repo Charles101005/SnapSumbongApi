@@ -346,6 +346,7 @@ class UserService:
         return DomainResult.success(user)
 
     @staticmethod
+    @transaction.atomic
     def update_staff(
             *,
             actor: Users,
@@ -364,6 +365,7 @@ class UserService:
             return DomainResult.error(UserNotFoundError)
 
         updated_fields: list[str] = []
+        changes: dict[str, dict[str, Any]] = {}
         is_active: bool|None = fields.get("is_active")
         role_id: int|None = fields.get("role_id")
 
@@ -391,6 +393,7 @@ class UserService:
         if updated_info_fields:
             AuthorizationService.require_perm(actor, AllPermissions.EMPLOYEES.UPDATE_ANY)
             for field, value in updated_info_fields.items():
+                changes[field] = {"from": getattr(user, field), "to": value}
                 setattr(user, field, value)
                 updated_fields.append(field)
 
@@ -400,6 +403,7 @@ class UserService:
             else:
                 AuthorizationService.require_perm(actor, AllPermissions.EMPLOYEES.DEACTIVATE_ANY)
 
+            changes["is_active"] = {"from": user.is_active, "to": is_active}
             user.is_active = is_active
             updated_fields.append("is_active")
 
@@ -410,6 +414,10 @@ class UserService:
             if role is None:
                 raise RoleNotFoundException()
 
+            changes["role"] = {
+                "from": {"role_id": user.role_id, "role_name": user.role.role_name},
+                "to": {"role_id": role.role_id, "role_name": role.role_name},
+            }
             user.role = role
             updated_fields.append("role_id")
 
@@ -417,9 +425,36 @@ class UserService:
             updated_fields.append("updated_at")
             user.save(update_fields=updated_fields)
 
+            changed_fields = ", ".join(changes.keys())
+            is_deactivation = changes.get("is_active", {}).get("to") is False
+
+            if is_deactivation:
+                AuditLogService.log_deactivate(
+                    actor=actor,
+                    module=AuditLogService.ModuleType.EMPLOYEE,
+                    target_object=user,
+                    payload_override={"changes": changes},
+                    description_override=(
+                        f"EMPLOYEE {user.user_number} was deactivated by {actor.user_number}"
+                        f" (fields: {changed_fields})"
+                    ),
+                )
+            else:
+                AuditLogService.log_update(
+                    actor=actor,
+                    module=AuditLogService.ModuleType.EMPLOYEE,
+                    target_object=user,
+                    description=(
+                        f"EMPLOYEE {user.user_number} was updated by {actor.user_number}"
+                        f" (fields: {changed_fields})"
+                    )[:255],
+                    payload={"changes": changes},
+                )
+
         return DomainResult.success(None)
 
     @staticmethod
+    @transaction.atomic
     def update_citizen(
             *,
             actor: Users,
@@ -435,6 +470,7 @@ class UserService:
             return DomainResult.error(UserNotFoundError)
 
         updated_fields: list[str] = []
+        changes: dict[str, dict[str, Any]] = {}
         is_active = fields.get("is_active")
 
         if is_active is not None and is_active != user.is_active:
@@ -443,12 +479,34 @@ class UserService:
             else:
                 AuthorizationService.require_perm(actor, AllPermissions.USERS.DEACTIVATE_ANY)
 
+            changes["is_active"] = {"from": user.is_active, "to": is_active}
             user.is_active = is_active
             updated_fields.append("is_active")
 
         if updated_fields:
             updated_fields.append("updated_at")
             user.save(update_fields=updated_fields)
+
+            if changes["is_active"]["to"] is False:
+                AuditLogService.log_deactivate(
+                    actor=actor,
+                    module=AuditLogService.ModuleType.USER,
+                    target_object=user,
+                    payload_override={"changes": changes},
+                    description_override=(
+                        f"{user.user_number} was deactivated by {actor.user_number}"
+                    ),
+                )
+            else:
+                AuditLogService.log_update(
+                    actor=actor,
+                    module=AuditLogService.ModuleType.USER,
+                    target_object=user,
+                    description=(
+                        f"{user.user_number} was activated by {actor.user_number}"
+                    ),
+                    payload={"changes": changes},
+                )
 
         return DomainResult.success(None)
 

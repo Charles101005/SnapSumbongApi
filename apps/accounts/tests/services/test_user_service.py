@@ -12,7 +12,8 @@ from apps.accounts.domain_errors.user_error import (
 from apps.accounts.exceptions.role_exception import RoleNotFoundException, SystemCitizenRoleMissingException
 from apps.accounts.models import Users
 from apps.accounts.services import AuthService, UserService
-from apps.accounts.tests.factories import UserFactory
+from apps.accounts.tests.factories import UserFactory, RoleFactory
+from apps.audits.models import AuditLogs
 from apps.audits.services import AuditLogService
 from shared.authorization import AllPermissions
 from external.storage import UploadIntent
@@ -668,3 +669,137 @@ class TestUpdateCitizen:
 
         assert result.is_success
         require_mock.assert_not_called()
+
+
+@pytest.mark.django_db
+class TestUpdateStaffAuditLogging:
+    def test_info_update_logs_update_with_changes(self, system_admin_role, report_officer_role, mocker):
+        mocker.patch('shared.authorization.service.AuthorizationService.require_perm')
+        actor = UserFactory(role=system_admin_role, is_staff=True)
+        target = UserFactory(role=report_officer_role, is_staff=True, first_name='Original')
+
+        UserService.update_staff(
+            actor=actor,
+            user_number=target.user_number,
+            fields={'first_name': 'Updated'},
+        )
+
+        log = AuditLogs.objects.get(action=AuditLogs.ActionType.UPDATE)
+        assert log.module == AuditLogs.ModuleType.EMPLOYEE
+        assert log.user_id == actor.user_id
+        assert log.target_object == target
+        assert log.payload['changes']['first_name'] == {'from': 'Original', 'to': 'Updated'}
+        assert f'EMPLOYEE {target.user_number}' in log.description
+        assert actor.user_number in log.description
+
+    def test_deactivation_logs_deactivate_action(self, system_admin_role, report_officer_role, mocker):
+        mocker.patch('shared.authorization.service.AuthorizationService.require_perm')
+        actor = UserFactory(role=system_admin_role, is_staff=True)
+        target = UserFactory(role=report_officer_role, is_staff=True)
+
+        UserService.update_staff(
+            actor=actor,
+            user_number=target.user_number,
+            fields={'is_active': False},
+        )
+
+        log = AuditLogs.objects.get(action=AuditLogs.ActionType.DEACTIVATE)
+        assert log.module == AuditLogs.ModuleType.EMPLOYEE
+        assert log.target_object == target
+        assert log.payload['changes']['is_active'] == {'from': True, 'to': False}
+        assert f'EMPLOYEE {target.user_number} was deactivated by {actor.user_number}' in log.description
+
+    def test_activation_logs_update_action(self, system_admin_role, report_officer_role, mocker):
+        mocker.patch('shared.authorization.service.AuthorizationService.require_perm')
+        actor = UserFactory(role=system_admin_role, is_staff=True)
+        target = UserFactory(role=report_officer_role, is_staff=True, is_active=False)
+
+        UserService.update_staff(
+            actor=actor,
+            user_number=target.user_number,
+            fields={'is_active': True},
+        )
+
+        log = AuditLogs.objects.get(action=AuditLogs.ActionType.UPDATE)
+        assert log.module == AuditLogs.ModuleType.EMPLOYEE
+        assert log.payload['changes']['is_active'] == {'from': False, 'to': True}
+
+    def test_role_reassignment_logs_role_change(self, system_admin_role, report_officer_role, mocker):
+        mocker.patch('shared.authorization.service.AuthorizationService.require_perm')
+        actor = UserFactory(role=system_admin_role, is_staff=True)
+        target = UserFactory(role=report_officer_role, is_staff=True)
+        new_role = RoleFactory(role_name='Reassignment Target', role_code='REASSIGNMENT_TARGET')
+
+        UserService.update_staff(
+            actor=actor,
+            user_number=target.user_number,
+            fields={'role_id': new_role.role_id},
+        )
+
+        log = AuditLogs.objects.get(action=AuditLogs.ActionType.UPDATE)
+        assert log.payload['changes']['role'] == {
+            'from': {'role_id': report_officer_role.role_id, 'role_name': report_officer_role.role_name},
+            'to': {'role_id': new_role.role_id, 'role_name': new_role.role_name},
+        }
+
+    def test_no_change_logs_nothing(self, system_admin_role, report_officer_role):
+        actor = UserFactory(role=system_admin_role, is_staff=True)
+        target = UserFactory(role=report_officer_role, is_staff=True, first_name='Same')
+
+        UserService.update_staff(
+            actor=actor,
+            user_number=target.user_number,
+            fields={'first_name': 'Same'},
+        )
+
+        assert not AuditLogs.objects.exists()
+
+
+@pytest.mark.django_db
+class TestUpdateCitizenAuditLogging:
+    def test_deactivation_logs_deactivate_action(self, system_admin_role, citizen_role, mocker):
+        mocker.patch('shared.authorization.service.AuthorizationService.require_perm')
+        actor = UserFactory(role=system_admin_role, is_staff=True)
+        citizen = UserFactory(role=citizen_role, is_staff=False)
+
+        UserService.update_citizen(
+            actor=actor,
+            user_number=citizen.user_number,
+            fields={'is_active': False},
+        )
+
+        log = AuditLogs.objects.get(action=AuditLogs.ActionType.DEACTIVATE)
+        assert log.module == AuditLogs.ModuleType.USER
+        assert log.user_id == actor.user_id
+        assert log.target_object == citizen
+        assert log.payload['changes']['is_active'] == {'from': True, 'to': False}
+        assert log.description == f'{citizen.user_number} was deactivated by {actor.user_number}'
+
+    def test_activation_logs_update_action(self, system_admin_role, citizen_role, mocker):
+        mocker.patch('shared.authorization.service.AuthorizationService.require_perm')
+        actor = UserFactory(role=system_admin_role, is_staff=True)
+        citizen = UserFactory(role=citizen_role, is_staff=False, is_active=False)
+
+        UserService.update_citizen(
+            actor=actor,
+            user_number=citizen.user_number,
+            fields={'is_active': True},
+        )
+
+        log = AuditLogs.objects.get(action=AuditLogs.ActionType.UPDATE)
+        assert log.module == AuditLogs.ModuleType.USER
+        assert log.payload['changes']['is_active'] == {'from': False, 'to': True}
+        assert log.description == f'{citizen.user_number} was activated by {actor.user_number}'
+
+    def test_noop_logs_nothing(self, system_admin_role, citizen_role, mocker):
+        mocker.patch('shared.authorization.service.AuthorizationService.require_perm')
+        actor = UserFactory(role=system_admin_role, is_staff=True)
+        citizen = UserFactory(role=citizen_role, is_staff=False, is_active=True)
+
+        UserService.update_citizen(
+            actor=actor,
+            user_number=citizen.user_number,
+            fields={'is_active': True},
+        )
+
+        assert not AuditLogs.objects.exists()

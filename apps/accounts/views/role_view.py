@@ -75,6 +75,7 @@ class RoleDetailView(APIView):
 
         validated_data = serializer.validated_data
         result = RoleService.update_role(
+            actor=request.user,
             role_id=role_id,
             fields=validated_data
         )
@@ -88,7 +89,7 @@ class RoleDetailView(APIView):
 @rate_limit(StandardRateLimit)
 @require_perm(AllPermissions.ROLES.CREATE)
 def duplicate_role_view(request: Request, role_id: int) -> Response:
-    result = RoleService.duplicate_role(role_id)
+    result = RoleService.duplicate_role(actor=request.user, role_id=role_id)
 
     return DomainResultResponse(result).respond(
         serializer_class=CreateRoleResponseSerializer,
@@ -99,7 +100,7 @@ def duplicate_role_view(request: Request, role_id: int) -> Response:
 @rate_limit(StandardRateLimit)
 @require_perm(AllPermissions.ROLES.DEACTIVATE_ANY)
 def deactivate_role_view(request: Request, role_id: int) -> Response:
-    result = RoleService.deactivate_role(role_id)
+    result = RoleService.deactivate_role(actor=request.user, role_id=role_id)
 
     return DomainResultResponse(result).respond(
         success_status_code=status.HTTP_200_OK,

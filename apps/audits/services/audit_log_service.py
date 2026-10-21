@@ -82,21 +82,25 @@ class AuditLogService:
             *,
             actor: Users,
             module: AuditLogs.ModuleType,
-            deactivated_user: Users,
-            reason: str,
+            target_object: Users|Roles,
+            reason: str|None=None,
             payload_override: dict[str, Any]|None=None,
             description_override: str|None=None,
     ) -> None:
         description = description_override
         payload = payload_override
 
-        deactivated_user_number = deactivated_user.user_number
-        deactivated_user_role_name = deactivated_user.role.role_name
-
         if not description:
+            if isinstance(target_object, Users):
+                target_str = f"{target_object.user_number} ({target_object.role.role_name})"
+            else:
+                target_str = f"{target_object.role_code}"
+
             description = (
-                f"{deactivated_user_number} ({deactivated_user_role_name}) was deactivated by {actor.user_number}"
-            ) + f" with the reason: \"{reason}\""
+                f"{target_str} was deactivated by {actor.user_number}"
+            )
+            if reason:
+                description += f" with the reason: \"{reason}\""
 
         AuditLogService._log(
             actor_id=actor.user_id,
@@ -104,7 +108,7 @@ class AuditLogService:
             module=module,
             description=description,
             payload=payload,
-            target_object=deactivated_user
+            target_object=target_object
         )
 
     @staticmethod

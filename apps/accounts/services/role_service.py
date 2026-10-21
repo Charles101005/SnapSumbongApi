@@ -117,6 +117,7 @@ class RoleService:
     @transaction.atomic
     def update_role(
             *,
+            actor: Users,
             role_id: int,
             fields: dict[str, Any],
     ) -> DomainResult[None]:
@@ -131,6 +132,7 @@ class RoleService:
             raise DeactivatedRoleModificationDeniedException()
 
         updated_fields = []
+        changes: dict[str, dict[str, Any]] = {}
 
         role_name: str|None = fields.get("role_name")
         description: str|None = fields.get("description")
@@ -144,11 +146,14 @@ class RoleService:
                 if Roles.objects.filter(role_code=role_code).exists():
                     return DomainResult.error(RoleAlreadyExistError)
 
+                changes["role_name"] = {"from": role.role_name, "to": cleaned_role_name}
+                changes["role_code"] = {"from": role.role_code, "to": role_code}
                 role.role_name = cleaned_role_name
                 role.role_code = role_code
                 updated_fields.extend(["role_name", "role_code"])
 
         if description is not None and description.strip() != role.description:
+            changes["description"] = {"from": role.description, "to": description.strip()}
             role.description = description.strip()
             updated_fields.append("description")
 
@@ -162,16 +167,45 @@ class RoleService:
             if valid_permissions.count() != len(set(permission_names)):
                 return DomainResult.error(PermissionNotFoundError)
 
+            old_permission_names = set(role.permissions.values_list("permission_name", flat=True))
+            new_permission_names = set(valid_permissions.values_list("permission_name", flat=True))
+
+            permissions_added = sorted(new_permission_names - old_permission_names)
+            permissions_removed = sorted(old_permission_names - new_permission_names)
+
             role.permissions.set(valid_permissions)
+
+            if permissions_added or permissions_removed:
+                changes["permissions"] = {
+                    "added": permissions_added,
+                    "removed": permissions_removed,
+                }
 
             if not updated_fields:
                 role.save(update_fields=["updated_at"])
+
+        if changes:
+            changed_fields = ", ".join(changes.keys())
+            AuditLogService.log_update(
+                actor=actor,
+                module=AuditLogService.ModuleType.ROLE,
+                target_object=role,
+                description=(
+                    f"ROLE {role.role_code} was updated by {actor.user_number}"
+                    f" (fields: {changed_fields})"
+                )[:255],
+                payload={"changes": changes},
+            )
 
         return DomainResult.success(None)
 
     @staticmethod
     @transaction.atomic
-    def duplicate_role(role_id: int) -> DomainResult[Roles]:
+    def duplicate_role(
+            *,
+            actor: Users,
+            role_id: int,
+    ) -> DomainResult[Roles]:
         source_role: Roles|None = Roles.objects.filter(
             role_id=role_id
         ).prefetch_related("permissions").first()
@@ -201,10 +235,30 @@ class RoleService:
         source_permissions = source_role.permissions.all()
         new_role.permissions.set(source_permissions)
 
+        AuditLogService.log_create(
+            actor=actor,
+            module=AuditLogService.ModuleType.ROLE,
+            target_object=new_role,
+            target_identifier=f"{new_role.role_code}({new_role.role_id})",
+            payload={
+                "duplicated_from": {
+                    "role_id": source_role.role_id,
+                    "role_code": source_role.role_code,
+                    "role_name": source_role.role_name,
+                },
+                "initial_permissions": list(source_permissions.values_list("permission_name", flat=True)),
+            },
+        )
+
         return DomainResult.success(new_role)
 
     @staticmethod
-    def deactivate_role(role_id: int) -> DomainResult[None]:
+    @transaction.atomic
+    def deactivate_role(
+            *,
+            actor: Users,
+            role_id: int,
+    ) -> DomainResult[None]:
         role = Roles.objects.get_by_id_or_none(role_id)
 
         if not role:
@@ -221,5 +275,15 @@ class RoleService:
 
         role.is_active = False
         role.save(update_fields=["is_active", "updated_at"])
+
+        AuditLogService.log_deactivate(
+            actor=actor,
+            module=AuditLogService.ModuleType.ROLE,
+            target_object=role,
+            description_override=(
+                f"ROLE {role.role_code} was deactivated by {actor.user_number}"
+            ),
+            payload_override={"changes": {"is_active": {"from": True, "to": False}}},
+        )
 
         return DomainResult.success(None)
