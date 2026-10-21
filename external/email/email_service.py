@@ -16,7 +16,7 @@ class EmailService:
     # actually handed to Resend (sent to the resend.dev domain) or only
     # printed to the console. Completely inert in prod (DEBUG=False) --
     # prod always sends and never prints.
-    _dev_email_enabled: bool = True
+    _dev_email_enabled: bool = False
 
     @classmethod
     def _resolve_sender(cls, *, auth: bool) -> str:
@@ -43,7 +43,7 @@ class EmailService:
         separator = "=" * 60
         to_line = ", ".join(to_emails)
         print(f"\n{separator}")
-        print("[EmailService] EMAIL NOT SENT VIA RESEND (dev console)")
+        print(f"[EmailService] EMAIL {'' if cls._should_send() else 'NOT '}SENT VIA RESEND (dev console)")
         print(separator)
         print(f"From:    {from_email}")
         print(f"To:      {to_line}")

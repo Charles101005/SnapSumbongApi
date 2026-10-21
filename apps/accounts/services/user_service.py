@@ -23,7 +23,7 @@ from shared.authorization.default_initial_role import AllDefaultRoles
 from shared.authorization.service import AuthorizationService
 from shared.authorization import AllPermissions
 from shared.results import DomainResult
-from apps.accounts.services import AuthService
+from .auth_service import AuthService
 from external.storage import StorageService, UploadIntent
 from external.email import EmailService
 

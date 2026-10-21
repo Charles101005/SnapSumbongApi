@@ -2,7 +2,7 @@ from django.db import transaction, IntegrityError
 from django.utils import timezone
 
 from apps.accounts.models import Users, VerificationRequest
-from apps.accounts.services.verification_service import VerificationService
+from .verification_service import VerificationService
 from apps.accounts.exceptions.verification_exception import VerificationNotFoundException
 from shared.results import DomainResult
 from apps.accounts.domain_errors.email_change_error import (
