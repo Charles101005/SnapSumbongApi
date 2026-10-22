@@ -41,6 +41,8 @@ class AllDefaultRoles:
             AllPermissions.ROLES.UPDATE_ANY,
             AllPermissions.ROLES.DEACTIVATE_ANY,
 
+            AllPermissions.REPORTS.READ_ALL,
+
             AllPermissions.ANALYTICS.READ_HANDLER_PERFORMANCE,
             AllPermissions.ANALYTICS.READ_ALL_METRICS,
             AllPermissions.ANALYTICS.READ_DASHBOARD,

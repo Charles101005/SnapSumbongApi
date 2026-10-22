@@ -12,6 +12,9 @@ from apps.accounts.serializers.response.lookup_serializer import LookupRolesResp
 
 
 @api_view(["GET"])
+# The AUDITS.READ_* grants are intentional: the Audit Trail's role filter
+# consumes this lookup, and the payload is names-only (role_id/role_name)
+# — no permissions or configuration beyond active role labels.
 @require_any_perms(
     AllPermissions.EMPLOYEES.CREATE,
     AllPermissions.EMPLOYEES.READ_ALL,

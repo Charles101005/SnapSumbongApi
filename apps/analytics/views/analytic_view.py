@@ -10,8 +10,16 @@ from shared.ratelimit import rate_limit, StandardRateLimit
 from shared.authorization import AllPermissions
 from apps.analytics.serializers.response.analytic_serializer import (
     GetReportMetricsResponseSerializer,
-    GetHandlerComplianceResponseSerializer,
+    GetHandlerWorkloadResponseSerializer,
+    GetOverviewResponseSerializer,
 )
+
+
+def _range_params(request: Request) -> dict:
+    return {
+        "from_date": request.query_params.get("from"),
+        "to_date": request.query_params.get("to"),
+    }
 
 
 @api_view(["GET"])
@@ -31,6 +39,25 @@ def hazard_report_metrics_view(request: Request) -> Response:
 
 @api_view(["GET"])
 @rate_limit(StandardRateLimit)
+@require_any_perms(
+    AllPermissions.ANALYTICS.READ_ALL_METRICS,
+    AllPermissions.ANALYTICS.READ_ASSIGNED_METRICS,
+    AllPermissions.ANALYTICS.READ_OWN_METRICS,
+)
+def handler_overview_view(request: Request) -> Response:
+    result = AnalyticService.get_report_overview(
+        user=request.user,
+        **_range_params(request),
+    )
+
+    return DomainResultResponse(result).respond(
+        serializer_class=GetOverviewResponseSerializer,
+        success_status_code=status.HTTP_200_OK,
+    )
+
+@api_view(["GET"])
+@rate_limit(StandardRateLimit)
+@require_perm(AllPermissions.ANALYTICS.READ_HANDLER_PERFORMANCE)
 def employee_metrics_view(request: Request, user_number: str) -> Response:
     result = AnalyticService.get_user_activity_metrics(
         user_number=user_number,
@@ -43,6 +70,7 @@ def employee_metrics_view(request: Request, user_number: str) -> Response:
 
 @api_view(["GET"])
 @rate_limit(StandardRateLimit)
+@require_perm(AllPermissions.USERS.READ_ALL)
 def citizen_metrics_view(request: Request, user_number: str) -> Response:
     result = AnalyticService.get_user_activity_metrics(
         user_number=user_number,
@@ -56,13 +84,18 @@ def citizen_metrics_view(request: Request, user_number: str) -> Response:
 
 @api_view(["GET"])
 @rate_limit(StandardRateLimit)
-@require_perm(AllPermissions.ANALYTICS.READ_HANDLER_PERFORMANCE)
-def handler_compliance_view(request: Request) -> Response:
-    result = AnalyticService.get_handler_compliance_metrics()
-
-    return DomainResultResponse(result).respond(
-        serializer_class=GetHandlerComplianceResponseSerializer,
-        success_status_code=status.HTTP_200_OK,
+@require_any_perms(
+    AllPermissions.ANALYTICS.READ_ALL_METRICS,
+    AllPermissions.ANALYTICS.READ_ASSIGNED_METRICS,
+    AllPermissions.ANALYTICS.READ_OWN_METRICS,
+)
+def handler_workload_view(request: Request) -> Response:
+    result = AnalyticService.get_handler_workload(
+        user=request.user,
+        **_range_params(request),
     )
 
-
+    return DomainResultResponse(result).respond(
+        serializer_class=GetHandlerWorkloadResponseSerializer,
+        success_status_code=status.HTTP_200_OK,
+    )

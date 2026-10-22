@@ -240,6 +240,9 @@ class GetReportDetailResponseSerializer(serializers.Serializer):
             data.pop("category", None)
             data.pop("severity", None)
             data.pop("created_at", None)
+            # Internal staff-only working notes; citizens only ever see the
+            # per-transition remarks inside status_timeline.
+            data.pop("remarks", None)
 
         return data
 
