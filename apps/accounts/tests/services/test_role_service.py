@@ -324,6 +324,24 @@ class TestUpdateRoleAuditLogging:
         assert log.payload['changes']['role_code'] == {'from': 'OLD_NAME', 'to': 'NEW_NAME'}
         assert 'ROLE NEW_NAME' in log.description
         assert actor.user_number in log.description
+        assert '(changed: Name, Code)' in log.description
+        # Raw column names must not leak into the human-readable description
+        assert 'role_name' not in log.description
+
+    def test_description_uses_friendly_labels_for_description_and_permissions(self, actor):
+        permission = PermissionFactory(permission_name='perm:new')
+        role = RoleFactory(description='Original')
+
+        RoleService.update_role(
+            actor=actor,
+            role_id=role.role_id,
+            fields={'description': 'Updated', 'permission_names': ['perm:new']},
+        )
+
+        log = AuditLogs.objects.get(action=AuditLogs.ActionType.UPDATE)
+        assert '(changed: Description, Permissions +1/-0)' in log.description
+        assert 'permission_names' not in log.description
+        assert log.payload['changes']['permissions']['added'] == [permission.permission_name]
 
     def test_permission_change_logs_added_and_removed(self, actor):
         keep = PermissionFactory(permission_name='perm:keep')

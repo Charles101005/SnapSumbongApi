@@ -19,6 +19,7 @@ from apps.accounts.domain_errors.user_error import (
 from apps.audits.services import AuditLogService
 from apps.reports.models import HazardReports
 from shared.results import DomainResult
+from external.email import EmailService
 
 
 BAN_WARNING_THRESHOLD = 3
@@ -125,11 +126,35 @@ class ModerationService:
         citizen.is_active = False
         citizen.save(update_fields=["is_active"])
 
-        AuditLogService.log_ban(
+        ban_log = AuditLogService.log_ban(
             actor=actor,
             banned_user=citizen,
             reason=reason,
             fast_track_report_number=report_number if warning_count < BAN_WARNING_THRESHOLD else None,
+        )
+
+        flagged_report_numbers = list(
+            CitizenWarnings.objects.filter(
+                user=citizen,
+                report__isnull=False,
+            ).values_list("report__report_number", flat=True)
+        )
+        total_report_count = HazardReports.objects.filter(
+            reported_by_id=citizen.user_id
+        ).count()
+
+        # Evaluated eagerly above so the callback only captures plain values
+        # -- no queries run after the transaction commits.
+        transaction.on_commit(
+            lambda: EmailService.send_user_banned(
+                to_email=citizen.email,
+                to_first_name=citizen.first_name,
+                case_id=ban_log.audit_log_number,
+                flagged_report_count=len(flagged_report_numbers),
+                total_report_count=total_report_count,
+                reason=reason,
+                flagged_report_numbers=flagged_report_numbers,
+            )
         )
 
         return DomainResult.success(None)

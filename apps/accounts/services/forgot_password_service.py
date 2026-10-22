@@ -2,7 +2,8 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.accounts.models import Users, VerificationRequest
-from apps.accounts.services import UserService, AuthService
+from .user_service import UserService
+from .auth_service import AuthService
 from .verification_service import VerificationService
 from shared.results import DomainResult
 from apps.accounts.domain_errors.forgot_password_error import PasswordResetInvalidError

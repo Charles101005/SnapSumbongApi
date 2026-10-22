@@ -1,5 +1,5 @@
 import re
-from typing import Any
+from typing import Any, ClassVar
 from collections import defaultdict
 
 from django.db import transaction
@@ -113,6 +113,28 @@ class RoleService:
 
         return DomainResult.success(role)
 
+    _CHANGE_FIELD_LABELS: ClassVar[dict[str, str]] = {
+        "role_name": "Name",
+        "role_code": "Code",
+        "description": "Description",
+    }
+
+    @staticmethod
+    def _describe_changes(changes: dict[str, dict[str, Any]]) -> str:
+        parts: list[str] = []
+        for field, change in changes.items():
+            if field == "permissions":
+                added = len(change.get("added") or [])
+                removed = len(change.get("removed") or [])
+                parts.append(f"Permissions +{added}/-{removed}")
+            else:
+                label = RoleService._CHANGE_FIELD_LABELS.get(
+                    field,
+                    field.replace("_", " ").title(),
+                )
+                parts.append(label)
+        return ", ".join(parts)
+
     @staticmethod
     @transaction.atomic
     def update_role(
@@ -185,15 +207,15 @@ class RoleService:
                 role.save(update_fields=["updated_at"])
 
         if changes:
-            changed_fields = ", ".join(changes.keys())
+            changed_summary = RoleService._describe_changes(changes)
             AuditLogService.log_update(
                 actor=actor,
                 module=AuditLogService.ModuleType.ROLE,
                 target_object=role,
                 description=(
                     f"ROLE {role.role_code} was updated by {actor.user_number}"
-                    f" (fields: {changed_fields})"
-                )[:255],
+                    f" (changed: {changed_summary})"
+                ),
                 payload={"changes": changes},
             )
 

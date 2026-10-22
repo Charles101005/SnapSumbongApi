@@ -53,16 +53,23 @@ class TestUserModelStr:
 
 
 @pytest.mark.django_db
-class TestSendOtpPlaceholder:
-    def test_send_otp_prints_placeholder(self, django_capture_on_commit_callbacks, capsys):
+class TestSendOtpDispatch:
+    def test_registration_otp_is_emailed_on_commit(self, django_capture_on_commit_callbacks, mocker):
+        send_otp = mocker.patch('external.email.EmailService.send_registration_otp', return_value=True)
+
         with django_capture_on_commit_callbacks(execute=True):
             VerificationService.create(
                 email='send-otp@email.com',
                 purpose=VerificationRequest.VerificationPurpose.REGISTRATION,
-                payload={},
+                payload={'first_name': 'Juan'},
             )
 
-        assert 'send-otp@email.com' in capsys.readouterr().out
+        send_otp.assert_called_once_with(
+            to_email='send-otp@email.com',
+            to_first_name='Juan',
+            otp_code=mocker.ANY,
+            expiry_minutes=1,
+        )
 
 
 @pytest.mark.django_db
