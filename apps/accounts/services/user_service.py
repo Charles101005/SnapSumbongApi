@@ -17,7 +17,8 @@ from apps.accounts.exceptions.role_exception import SystemCitizenRoleMissingExce
 from apps.accounts.domain_errors.user_error import (
     UserNotFoundError,
     IncorrectAccountCredentialsError,
-    SelfUpdateDeniedError
+    SelfUpdateDeniedError,
+    PasswordReuseError
 )
 from shared.authorization.default_initial_role import AllDefaultRoles
 from shared.authorization.service import AuthorizationService
@@ -159,6 +160,9 @@ class UserService:
 
         if user is None:
             return DomainResult.error(UserNotFoundError)
+
+        if user.check_password(new_password):
+            return DomainResult.error(PasswordReuseError)
 
         user.password = make_password(new_password)
 

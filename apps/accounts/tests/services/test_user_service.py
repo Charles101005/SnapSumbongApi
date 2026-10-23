@@ -6,6 +6,7 @@ from rest_framework.exceptions import PermissionDenied
 
 from apps.accounts.domain_errors.user_error import (
     IncorrectAccountCredentialsError,
+    PasswordReuseError,
     SelfUpdateDeniedError,
     UserNotFoundError,
 )
@@ -175,6 +176,19 @@ class TestUnauthenticatedChangePassword:
         assert result.is_success
         user.refresh_from_db()
         assert user.check_password('NewPassword123')
+
+    def test_same_password_rejected(self, citizen_role):
+        user = UserFactory(role=citizen_role)
+
+        result = UserService.unauthenticated_change_password(
+            email=user.email,
+            new_password='Password2005',
+        )
+
+        assert result.is_success is False
+        assert result.error is PasswordReuseError
+        user.refresh_from_db()
+        assert user.check_password('Password2005')
 
 
 @pytest.mark.django_db
