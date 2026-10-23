@@ -96,7 +96,7 @@ class TestEmailWiringEndToEnd:
 
     def test_report_submission_and_status_update(self, citizen_role, supervisor_role, django_capture_on_commit_callbacks):
         from apps.accounts.tests.factories import UserFactory
-        citizen = UserFactory(role=citizen_role, email='rep@x.com', first_name='Lia')
+        citizen = UserFactory(role=citizen_role, email='rep@x.com', first_name='Lia', is_notified=True)
         staff = UserFactory(role=supervisor_role, is_staff=True)
 
         category = HazardCategories.objects.create(
@@ -131,7 +131,7 @@ class TestEmailWiringEndToEnd:
 
     def test_status_update_without_remarks_hides_block(self, citizen_role, supervisor_role, django_capture_on_commit_callbacks):
         from apps.accounts.tests.factories import UserFactory
-        citizen = UserFactory(role=citizen_role)
+        citizen = UserFactory(role=citizen_role, is_notified=True)
         staff = UserFactory(role=supervisor_role, is_staff=True)
         category = HazardCategories.objects.create(
             hazard_name=f'Quiet Cat {timezone.now().timestamp()}', response_time_days=3
@@ -187,3 +187,144 @@ class TestEmailWiringEndToEnd:
         assert 'Spam reports' in msg['html_body']
         # case_id came through as the ban audit log number
         assert msg['to_emails'] == ['banned@x.com']
+
+
+@pytest.mark.django_db
+class TestIsNotifiedGating:
+    """Report notifications are preference-based (Users.is_notified); every
+    other email is security/account-critical and ignores the flag."""
+
+    @pytest.fixture(autouse=True)
+    def capture(self, mocker):
+        self.sent = []
+        mocker.patch.object(
+            EmailService._client, 'deliver',
+            side_effect=lambda **kw: self.sent.append(kw) or True,
+        )
+        return self
+
+    def _create_report(self, citizen, category_name):
+        category = HazardCategories.objects.create(
+            hazard_name=category_name, response_time_days=3
+        )
+        return ReportService.create_assign_hazard_report(
+            reported_by_id=citizen.user_id, category_id=category.hazard_id,
+            latitude=Decimal('14.5'), longitude=Decimal('120.9'),
+            address='123 Rizal St', description='Deep pothole',
+            is_anonymous=False, image_urls=[],
+        ).value
+
+    def test_opted_out_citizen_gets_no_submission_email(
+            self, citizen_role, django_capture_on_commit_callbacks):
+        from apps.accounts.tests.factories import UserFactory
+        citizen = UserFactory(role=citizen_role, is_notified=False)
+
+        with django_capture_on_commit_callbacks(execute=True):
+            self._create_report(citizen, f'OptOut Cat {timezone.now().timestamp()}')
+
+        assert self.sent == []
+
+    def test_opted_out_citizen_gets_no_status_update_email(
+            self, citizen_role, supervisor_role, django_capture_on_commit_callbacks):
+        from apps.accounts.tests.factories import UserFactory
+        citizen = UserFactory(role=citizen_role, is_notified=False)
+        staff = UserFactory(role=supervisor_role, is_staff=True)
+
+        with django_capture_on_commit_callbacks(execute=True):
+            report = self._create_report(citizen, f'OptOut Status {timezone.now().timestamp()}')
+
+        assert self.sent == []
+
+        with django_capture_on_commit_callbacks(execute=True):
+            ReportService.update_authorized_assigned_report(
+                user=staff, report_number=report.report_number,
+                new_status_str='UNDER_REVIEW',
+            )
+
+        assert self.sent == []
+
+    def test_opted_in_citizen_still_gets_both_emails(
+            self, citizen_role, supervisor_role, django_capture_on_commit_callbacks):
+        from apps.accounts.tests.factories import UserFactory
+        citizen = UserFactory(role=citizen_role, is_notified=True)
+        staff = UserFactory(role=supervisor_role, is_staff=True)
+
+        with django_capture_on_commit_callbacks(execute=True):
+            report = self._create_report(citizen, f'OptIn Cat {timezone.now().timestamp()}')
+
+        assert len(self.sent) == 1
+
+        with django_capture_on_commit_callbacks(execute=True):
+            ReportService.update_authorized_assigned_report(
+                user=staff, report_number=report.report_number,
+                new_status_str='UNDER_REVIEW',
+            )
+
+        assert len(self.sent) == 2
+
+    def test_otp_email_ignores_is_notified(
+            self, citizen_role, django_capture_on_commit_callbacks):
+        """Security-critical: an opted-out user still gets OTPs."""
+        from apps.accounts.tests.factories import UserFactory
+        UserFactory(role=citizen_role, email='optout-otp@x.com', is_notified=False)
+
+        with django_capture_on_commit_callbacks(execute=True):
+            ForgotPasswordService.request_reset_password('optout-otp@x.com')
+
+        assert len(self.sent) == 1
+        assert self.sent[0]['subject'] == 'Your SnapSumbong password reset code'
+
+    def test_deactivation_email_ignores_is_notified(
+            self, citizen_role, django_capture_on_commit_callbacks):
+        """Account-critical: the confirmation still goes out when opted out."""
+        from apps.accounts.tests.factories import UserFactory
+        user = UserFactory(role=citizen_role, email='optout-deac@x.com', is_notified=False)
+
+        with django_capture_on_commit_callbacks(execute=True):
+            UserService.deactivate_account(user)
+
+        assert len(self.sent) == 1
+        assert self.sent[0]['subject'] == 'Your SnapSumbong account has been deactivated'
+
+    def test_ban_email_ignores_is_notified(
+            self, citizen_role, supervisor_role, django_capture_on_commit_callbacks):
+        from apps.accounts.tests.factories import UserFactory
+        citizen = UserFactory(role=citizen_role, email='optout-ban@x.com', is_notified=False)
+        actor = UserFactory(role=supervisor_role, is_staff=True)
+
+        # 3 warnings is BAN_WARNING_THRESHOLD -- the count path (no
+        # report_number arg) taken here.
+        category = HazardCategories.objects.create(
+            hazard_name=f'OptOut Ban {timezone.now().timestamp()}', response_time_days=3
+        )
+        for _ in range(3):
+            report = HazardReports.objects.create(
+                reported_by=citizen, category=category,
+                latitude=Decimal('14.5'), longitude=Decimal('120.9'),
+                address='A', description='spam',
+            )
+            CitizenWarnings.objects.create(user=citizen, warned_by=actor, reason='spam', report=report)
+
+        with django_capture_on_commit_callbacks(execute=True):
+            ModerationService.ban_citizen(
+                actor=actor, user_number=citizen.user_number, reason='Spam reports'
+            )
+
+        assert len(self.sent) == 1
+        assert self.sent[0]['subject'] == 'Your SnapSumbong account has been banned'
+
+    def test_employee_temp_password_ignores_is_notified(
+            self, system_admin_role, django_capture_on_commit_callbacks):
+        from apps.accounts.tests.factories import UserFactory
+        actor = UserFactory(role=system_admin_role, is_notified=False)
+
+        with django_capture_on_commit_callbacks(execute=True):
+            UserService.create_staff(
+                actor=actor, email='optout-staff@x.com', role_id=system_admin_role.role_id,
+                last_name='Santos', first_name='Ana', contact_number='0917',
+                birth_date=timezone.now().date(), gender='F', street_address='1 Main',
+                region_code='01', province_code='01', city_code='01', barangay_code='01',
+            )
+
+        assert len(self.sent) == 1
+        assert self.sent[0]['subject'] == 'Your SnapSumbong staff account has been created'

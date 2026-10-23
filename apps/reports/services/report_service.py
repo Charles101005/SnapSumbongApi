@@ -60,6 +60,11 @@ class ReportService:
         if not report.reported_by:
             return
 
+        # Report notifications are preference-based: the user can opt out
+        # entirely via the profile (is_notified=False).
+        if not report.reported_by.is_notified:
+            return
+
         transaction.on_commit(
             lambda r=report, o=old_status_label, n=new_status_label, rem=remarks:
                 EmailService.send_report_status_update(
@@ -242,7 +247,9 @@ class ReportService:
             },
         )
 
-        if report.reported_by:
+        # Report receipts are preference-based: users who opted out of
+        # notifications (is_notified=False) don't get them.
+        if report.reported_by and report.reported_by.is_notified:
             transaction.on_commit(
                 lambda r=report: EmailService.send_report_successful_submission(
                     to_email=r.reported_by.email,
