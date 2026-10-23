@@ -2,6 +2,7 @@ import types
 
 import pytest
 from django.contrib.auth.hashers import make_password
+from django.conf import settings
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.response import Response
@@ -68,7 +69,9 @@ class TestSendOtpDispatch:
             to_email='send-otp@email.com',
             to_first_name='Juan',
             otp_code=mocker.ANY,
-            expiry_minutes=1,
+            expiry_minutes=settings.VERIFICATION_REQUEST_CONFIG.get(
+                "VERIFICATION_REQUEST_LIFETIME"
+            ).total_seconds() // 60,
         )
 
 
