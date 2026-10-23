@@ -37,8 +37,8 @@ VERIFICATION_REQUEST_CONFIG = {
     'OTP_LENGTH': 4,
     'MAX_ATTEMPTS': 3,
     'MAX_RESENDS': 2,
-    'RESEND_COOLDOWN': timedelta(minutes=1),
-    'VERIFICATION_REQUEST_LIFETIME': timedelta(minutes=1),
+    'RESEND_COOLDOWN': timedelta(minutes=5),
+    'VERIFICATION_REQUEST_LIFETIME': timedelta(minutes=5),
     'ABANDONED_THRESHOLD': timedelta(hours=1),
 }
 
