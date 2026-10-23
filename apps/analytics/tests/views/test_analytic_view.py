@@ -89,13 +89,15 @@ class TestHazardReportMetricsView:
 
 @pytest.mark.django_db
 class TestEmployeeMetricsView:
-    def test_returns_handled_metrics(self, api_client, report_officer_role):
+    def test_returns_handled_metrics(
+        self, api_client, report_officer_role, system_admin_role
+    ):
         handler = UserFactory(role=report_officer_role, is_staff=True)
         HazardReportFactory(
             assigned_to=handler, status=HazardReports.Status.RESOLVED
         )
         HazardReportFactory(assigned_to=handler, status=HazardReports.Status.NEW)
-        viewer = UserFactory()
+        viewer = UserFactory(role=system_admin_role, is_staff=True)
 
         api_client.force_authenticate(user=viewer)
         response = api_client.get(f"/analytics/employee/{handler.user_number}/")
@@ -107,10 +109,10 @@ class TestEmployeeMetricsView:
         }
 
     def test_staff_without_assignment_permission_conflicts(
-        self, api_client, citizen_role
+        self, api_client, citizen_role, system_admin_role
     ):
         staff = UserFactory(role=citizen_role, is_staff=True)
-        viewer = UserFactory()
+        viewer = UserFactory(role=system_admin_role, is_staff=True)
 
         api_client.force_authenticate(user=viewer)
         response = api_client.get(f"/analytics/employee/{staff.user_number}/")
@@ -118,8 +120,8 @@ class TestEmployeeMetricsView:
         assert response.status_code == 409
         assert response.json()["error_code"] == "METRICS_NOT_APPLICABLE_TO_ROLE"
 
-    def test_unknown_user_number_returns_404(self, api_client):
-        viewer = UserFactory()
+    def test_unknown_user_number_returns_404(self, api_client, system_admin_role):
+        viewer = UserFactory(role=system_admin_role, is_staff=True)
 
         api_client.force_authenticate(user=viewer)
         response = api_client.get("/analytics/employee/NO-SUCH-USER/")
@@ -128,10 +130,10 @@ class TestEmployeeMetricsView:
         assert response.json()["error_code"] == "USER_NOT_FOUND"
 
     def test_citizen_number_is_not_visible_on_the_employee_endpoint(
-        self, api_client, citizen_role
+        self, api_client, citizen_role, system_admin_role
     ):
         citizen = UserFactory(role=citizen_role)
-        viewer = UserFactory()
+        viewer = UserFactory(role=system_admin_role, is_staff=True)
 
         api_client.force_authenticate(user=viewer)
         response = api_client.get(f"/analytics/employee/{citizen.user_number}/")
@@ -142,7 +144,9 @@ class TestEmployeeMetricsView:
 
 @pytest.mark.django_db
 class TestCitizenMetricsView:
-    def test_returns_submitted_metrics(self, api_client, citizen_role):
+    def test_returns_submitted_metrics(
+        self, api_client, citizen_role, system_admin_role
+    ):
         citizen = UserFactory(role=citizen_role)
         handler = UserFactory(is_staff=True)
         HazardReportFactory(
@@ -152,7 +156,7 @@ class TestCitizenMetricsView:
             reported_by=citizen, assigned_to=handler, status=HazardReports.Status.NEW
         )
         HazardReportFactory(reported_by=UserFactory(role=citizen_role))
-        viewer = UserFactory()
+        viewer = UserFactory(role=system_admin_role, is_staff=True)
 
         api_client.force_authenticate(user=viewer)
         response = api_client.get(f"/analytics/citizen/{citizen.user_number}/")
@@ -163,8 +167,8 @@ class TestCitizenMetricsView:
             "total_reports_resolved": 1,
         }
 
-    def test_unknown_user_number_returns_404(self, api_client):
-        viewer = UserFactory()
+    def test_unknown_user_number_returns_404(self, api_client, system_admin_role):
+        viewer = UserFactory(role=system_admin_role, is_staff=True)
 
         api_client.force_authenticate(user=viewer)
         response = api_client.get("/analytics/citizen/NO-SUCH-USER/")
@@ -173,10 +177,10 @@ class TestCitizenMetricsView:
         assert response.json()["error_code"] == "USER_NOT_FOUND"
 
     def test_staff_number_is_not_visible_on_the_citizen_endpoint(
-        self, api_client, report_officer_role
+        self, api_client, report_officer_role, system_admin_role
     ):
         staff = UserFactory(role=report_officer_role, is_staff=True)
-        viewer = UserFactory()
+        viewer = UserFactory(role=system_admin_role, is_staff=True)
 
         api_client.force_authenticate(user=viewer)
         response = api_client.get(f"/analytics/citizen/{staff.user_number}/")
