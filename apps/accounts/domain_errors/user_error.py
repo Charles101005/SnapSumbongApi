@@ -98,3 +98,9 @@ UnbanTargetNotCitizenError = DomainError(
     status_code=status.HTTP_400_BAD_REQUEST,
     error_code="UNBAN_TARGET_NOT_CITIZEN",
 )
+
+PasswordReuseError = DomainError(
+    detail="Your new password cannot be the same as your current password.",
+    status_code=status.HTTP_400_BAD_REQUEST,
+    error_code="PASSWORD_REUSE",
+)

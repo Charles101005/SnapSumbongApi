@@ -267,3 +267,25 @@ class TestResetPasswordView:
         assert response.status_code == 400
         assert 'new_password' in response.json()
 
+    def test_same_new_password_returns_400(self, api_client, citizen_role):
+        user = UserFactory(role=citizen_role)
+        user.password = make_password('Test123*')
+        user.save(update_fields=['password'])
+        verification, reset_token = _seed_ready_verification(email=user.email)
+
+        response = api_client.post(
+            RESET_URL,
+            {
+                'email': user.email,
+                'reset_token': reset_token,
+                'new_password': 'Test123*',
+            },
+            format='json',
+        )
+
+        assert response.status_code == 400
+        assert response.json()['error_code'] == 'PASSWORD_REUSE'
+        user.refresh_from_db()
+        assert user.check_password('Test123*')
+        assert VerificationRequest.objects.filter(pk=verification.pk).exists()
+
