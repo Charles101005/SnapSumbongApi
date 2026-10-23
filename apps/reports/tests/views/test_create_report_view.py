@@ -105,3 +105,48 @@ class TestCreateReportView:
             create_log.payload["initial_status"]
             == HazardReports.Status(report.status).label
         )
+
+    def test_outside_philippines_latitude_is_rejected(self, api_client, citizen_role):
+        category = HazardCategoryFactory()
+        user = UserFactory(role=citizen_role)
+
+        api_client.force_authenticate(user=user)
+        response = api_client.post(
+            "/reports/",
+            _valid_payload(category, latitude="45.000000", longitude="120.984200"),
+            format="json",
+        )
+
+        assert response.status_code == 400
+        assert "latitude" in response.json()
+        assert not HazardReports.objects.exists()
+
+    def test_outside_philippines_longitude_is_rejected(self, api_client, citizen_role):
+        category = HazardCategoryFactory()
+        user = UserFactory(role=citizen_role)
+
+        api_client.force_authenticate(user=user)
+        response = api_client.post(
+            "/reports/",
+            _valid_payload(category, latitude="14.599500", longitude="-74.006000"),
+            format="json",
+        )
+
+        assert response.status_code == 400
+        assert "longitude" in response.json()
+        assert not HazardReports.objects.exists()
+
+    def test_philippine_edge_coordinates_are_accepted(self, api_client, citizen_role):
+        category = HazardCategoryFactory()
+        user = UserFactory(role=citizen_role)
+
+        api_client.force_authenticate(user=user)
+        # Northern edge (Y'Ami Island ~21.1° N) and western edge (~114° E).
+        response = api_client.post(
+            "/reports/",
+            _valid_payload(category, latitude="21.500000", longitude="115.000000"),
+            format="json",
+        )
+
+        assert response.status_code == 201
+        assert HazardReports.objects.exists()

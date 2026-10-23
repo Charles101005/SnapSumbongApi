@@ -6,6 +6,12 @@ from django.conf import settings
 from external.storage import StorageService, UploadIntent
 
 
+PH_MIN_LATITUDE = Decimal("4.0")
+PH_MAX_LATITUDE = Decimal("22.0")
+PH_MIN_LONGITUDE = Decimal("114.0")
+PH_MAX_LONGITUDE = Decimal("129.0")
+
+
 class ReportImageSignatureRequestSerializer(serializers.Serializer):
     image_count = serializers.IntegerField(
         min_value=1,
@@ -36,6 +42,21 @@ class CreateReportRequestSerializer(serializers.Serializer):
         min_length=1,
         max_length=settings.STORAGE_CONFIG['MAX_SIGNATURE_COUNT']
     )
+
+    def validate(self, attrs):
+        lat = attrs.get("latitude")
+        lng = attrs.get("longitude")
+
+        if lat is not None and not (PH_MIN_LATITUDE <= lat <= PH_MAX_LATITUDE):
+            raise serializers.ValidationError(
+                {"latitude": "Reported location outside the Philippines."}
+            )
+        if lng is not None and not (PH_MIN_LONGITUDE <= lng <= PH_MAX_LONGITUDE):
+            raise serializers.ValidationError(
+                {"longitude": "Reported location outside the Philippines."}
+            )
+
+        return attrs
 
     def validate_image_urls(self, value):
         expected_base_url = StorageService.get_expected_response_base_url()
