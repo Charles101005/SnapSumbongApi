@@ -1,0 +1,121 @@
+{
+  "metro_manila": [
+    {
+      "latitude": 14.6937,
+      "longitude": 121.0811,
+      "address": "Block 15 Lot 8, Pilot Area, Brgy. Commonwealth, Quezon City, Metro Manila"
+    },
+    {
+      "latitude": 14.6812,
+      "longitude": 121.0854,
+      "address": "House 42, San Simon Street, Brgy. Commonwealth, Quezon City, Metro Manila"
+    },
+    {
+      "latitude": 14.675,
+      "longitude": 121.0921,
+      "address": "Sitio Target, Phase 3, Brgy. Batasan Hills, Quezon City, Metro Manila"
+    },
+    {
+      "latitude": 14.6611,
+      "longitude": 121.1024,
+      "address": "Purok 4, Freedom Park, Brgy. Batasan Hills, Quezon City, Metro Manila"
+    },
+    {
+      "latitude": 14.5615,
+      "longitude": 121.0322,
+      "address": "54 Kalayaan Avenue, Brgy. Poblacion, Makati City, Metro Manila"
+    },
+    {
+      "latitude": 14.5651,
+      "longitude": 121.041,
+      "address": "Corner of J.P. Rizal and Sgt. Fabian Yabut St, Brgy. Guadalupe Nuevo, Makati City, Metro Manila"
+    },
+    {
+      "latitude": 14.7452,
+      "longitude": 121.0315,
+      "address": "Block 2, Lot 14, Silver Creek Subdivision, Brgy. Barangay 171, Caloocan City, Metro Manila"
+    }
+  ],
+  "outside_metro_manila": [
+    {
+      "latitude": 10.3283,
+      "longitude": 123.9015,
+      "address": "Sitio Plaza, Salinas Drive, Brgy. Lahug, Cebu City, Cebu"
+    },
+    {
+      "latitude": 10.3304,
+      "longitude": 123.9061,
+      "address": "Purok 3, Beverly Hills, Brgy. Lahug, Cebu City, Cebu"
+    },
+    {
+      "latitude": 10.3162,
+      "longitude": 123.9124,
+      "address": "Block 5, San Jose dela Montaña St, Brgy. Mabolo, Cebu City, Cebu"
+    },
+    {
+      "latitude": 10.3115,
+      "longitude": 123.9048,
+      "address": "Purok San Antonio, V. Sotto Street, Brgy. San Antonio, Cebu City, Cebu"
+    },
+    {
+      "latitude": 10.3245,
+      "longitude": 123.9312,
+      "address": "Sitio Mahayahay, H. Cortes Street, Brgy. Subangdaku, Mandaue City, Cebu"
+    },
+    {
+      "latitude": 7.0621,
+      "longitude": 125.5914,
+      "address": "Sitio Mahabang Buhangin, Brgy. Matina Aplaya, Davao City, Davao del Sur"
+    },
+    {
+      "latitude": 7.0685,
+      "longitude": 125.5992,
+      "address": "Purok 12, Ocean View, Brgy. Matina Aplaya, Davao City, Davao del Sur"
+    },
+    {
+      "latitude": 7.0984,
+      "longitude": 125.6121,
+      "address": "Block 12, Phase 1, DBP Village, Brgy. Buhangin (Poblacion), Davao City, Davao del Sur"
+    },
+    {
+      "latitude": 7.1021,
+      "longitude": 125.6045,
+      "address": "Purok 5, Cabantian Road, Brgy. Buhangin (Poblacion), Davao City, Davao del Sur"
+    },
+    {
+      "latitude": 7.2145,
+      "longitude": 125.4851,
+      "address": "Sitio Guba, Upper Gatungan, Brgy. Gatungan, Davao City, Davao del Sur"
+    },
+    {
+      "latitude": 15.0321,
+      "longitude": 120.6842,
+      "address": "MacArthur Highway corner Lazatin Blvd, Brgy. Dolores, San Fernando City, Pampanga"
+    },
+    {
+      "latitude": 15.0298,
+      "longitude": 120.6915,
+      "address": "Purok 2, Jose Abad Santos Avenue, Brgy. San Jose, San Fernando City, Pampanga"
+    },
+    {
+      "latitude": 18.4521,
+      "longitude": 120.9114,
+      "address": "Sitio Bucao, Purok Central, Brgy. Adams (Poblacion), Adams, Ilocos Norte"
+    },
+    {
+      "latitude": 10.7412,
+      "longitude": 121.9421,
+      "address": "Purok Malunggay, Coastal Road, Brgy. Barangay 2 (Poblacion), San Jose, Antique"
+    },
+    {
+      "latitude": 8.4821,
+      "longitude": 124.6425,
+      "address": "Zone 3, Masterson Avenue, Brgy. Carmen, Cagayan de Oro City, Misamis Oriental"
+    },
+    {
+      "latitude": 6.1124,
+      "longitude": 125.1714,
+      "address": "Purok 7, Santiago Boulevard, Brgy. Lagao, General Santos City, South Cotabato"
+    }
+  ]
+}
