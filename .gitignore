@@ -5,6 +5,7 @@
 .env
 .venv
 env/
+.env.production
 venv/
 ENV/
 *.log
@@ -16,3 +17,5 @@ db.sqlite3
 local_dev_ssl_files/
 .coverage
 htmlcov/
+staticfiles/
+DEPLOYMENT.md

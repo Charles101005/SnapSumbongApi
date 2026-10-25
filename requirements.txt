@@ -6,3 +6,4 @@ psycopg[binary]~=3.3.5
 python-dotenv~=1.2.2
 cloudinary~=1.46.2
 resend~=2.49.1
+gunicorn~=26.2.0
