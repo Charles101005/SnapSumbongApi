@@ -1,0 +1,61 @@
+# SnapSumbong API deployment stack
+#   caddy  — automatic HTTPS (Let's Encrypt) + reverse proxy to the API
+#   web    — Django API behind Gunicorn
+#   db     — PostgreSQL with a persistent volume
+#
+# Requires ./.env — generate it with ./fetch-env.sh (reads AWS Parameter Store).
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:?DB_NAME missing - run ./fetch-env.sh first}
+      POSTGRES_USER: ${DB_USER:?DB_USER missing - run ./fetch-env.sh first}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD missing - run ./fetch-env.sh first}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    # Official image docs recommend this under docker compose
+    shm_size: 128mb
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  web:
+    # Pre-built by GitHub Actions and pushed to GHCR (.github/workflows/build-image.yml).
+    # The EC2 host only pulls — no server-side builds. Tag is always :latest;
+    # CI also tags each image with its commit SHA for reference/rollback.
+    image: ghcr.io/charles101005/snapsumbong-api:latest
+    pull_policy: always # pick up images pushed after the last deploy
+    restart: unless-stopped
+    env_file: .env
+    expose:
+      - "8000" # internal only — never published to the host
+    depends_on:
+      db:
+        condition: service_healthy
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80" # HTTP -> HTTPS redirect + ACME HTTP-01 challenge
+      - "443:443" # HTTPS
+      - "443:443/udp" # HTTP/3
+    environment:
+      DOMAIN: ${DOMAIN:?DOMAIN missing - run ./fetch-env.sh first}
+      CERT_EMAIL: ${CERT_EMAIL:?CERT_EMAIL missing - run ./fetch-env.sh first}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data # persists Let's Encrypt certificates
+      - caddy_config:/config
+    depends_on:
+      - web
+
+volumes:
+  postgres_data:
+  caddy_data:
+  caddy_config:

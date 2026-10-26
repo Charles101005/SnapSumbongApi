@@ -1,0 +1,32 @@
+# SnapSumbong API — Caddy reverse proxy
+#
+# DOMAIN and CERT_EMAIL are injected as environment variables by
+# docker-compose.yml (values come from Parameter Store via ./fetch-env.sh).
+#
+# Caddy obtains and renews Let's Encrypt certificates automatically and
+# redirects plain HTTP to HTTPS — no certbot, no renewal cron jobs.
+{
+	email {$CERT_EMAIL}
+}
+
+{$DOMAIN} {
+	encode gzip
+
+	# Forward to the Django/Gunicorn container. Caddy sets X-Forwarded-For,
+	# X-Forwarded-Proto and X-Forwarded-Host, which Django trusts via
+	# SECURE_PROXY_SSL_HEADER in config/settings/security.py.
+	reverse_proxy web:8000
+
+	header {
+		>Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		>X-Content-Type-Options "nosniff"
+		>X-Frame-Options "DENY"
+		>Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "geolocation=(), camera=(), microphone=()"
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}

@@ -1,0 +1,36 @@
+# Keep the build context small and never bake secrets/artifacts into the image
+.git/
+.gitignore
+.gitattributes
+.idea/
+venv/
+.venv/
+env/
+ENV/
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+db.sqlite3
+*.log
+
+# Secrets and local config
+.env
+.env.example
+local_dev_ssl_files/
+
+# Deployment files not needed inside the web image
+.github/
+docker-compose.yml
+Caddyfile
+fetch-env.sh
+DEPLOYMENT.md
+README.md
+
+# Dev-only files
+requirements-dev.txt
+conftest.py
+pytest.ini
+**/tests/

@@ -1,0 +1,48 @@
+# Builds the API image and pushes it to GitHub Container Registry (ghcr.io)
+# so the EC2 host only pulls — it never builds on the server.
+#
+# Trigger: every push to main.
+# Tags pushed:
+#   ghcr.io/charles101005/snapsumbong-api:latest   ← what docker-compose.yml pulls
+#   ghcr.io/charles101005/snapsumbong-api:<sha>    ← pinned version, for reference/rollback
+#
+# GHCR image names must be lowercase, hence the explicit IMAGE_NAME below.
+
+name: Build and push image
+
+on:
+  push:
+    branches: [main]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ghcr.io/charles101005/snapsumbong-api
+
+jobs:
+  build-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write # needed by GITHUB_TOKEN to push to GHCR
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:latest
+            ${{ env.IMAGE_NAME }}:${{ github.sha }}
+          # Reuse layers between builds so runs stay fast and under free limits
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

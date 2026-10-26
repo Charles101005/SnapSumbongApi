@@ -14,9 +14,6 @@ if not env.DEBUG or (env.DB_NAME and env.DB_USER and env.DB_PASSWORD and env.DB_
             'HOST': env.DB_HOST,
             'PORT': env.DB_PORT,
 
-            'OPTIONS': {
-                'sslmode': 'disable' if env.DEBUG else 'require',
-            },
             'CONN_MAX_AGE': int(env.DB_CONNECTION_MAX_AGE_SECONDS)
         }
     }
