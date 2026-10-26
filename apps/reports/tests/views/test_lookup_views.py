@@ -17,7 +17,11 @@ class TestReportLookupView:
         assert response.status_code == 200
         data = response.json()
         assert data["categories"] == [
-            {"hazard_id": category.hazard_id, "hazard_name": "Road Crack"}
+            {
+                "hazard_id": category.hazard_id,
+                "hazard_name": "Road Crack",
+                "response_time_days": category.response_time_days,
+            }
         ]
         assert {
             "label": HazardReports.Status.NEW.label,
@@ -38,7 +42,11 @@ class TestReportLookupView:
         data = response.json()
         assert "severities" not in data
         assert data["categories"] == [
-            {"hazard_id": category.hazard_id, "hazard_name": "Flooded Street"}
+            {
+                "hazard_id": category.hazard_id,
+                "hazard_name": "Flooded Street",
+                "response_time_days": category.response_time_days,
+            }
         ]
         assert data["statuses"]
 

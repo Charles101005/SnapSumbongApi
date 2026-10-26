@@ -121,6 +121,9 @@ class UpdateReportRequestSerializer(serializers.Serializer):
     severity = serializers.CharField()
     status = serializers.CharField()
     remarks = serializers.CharField()
+    # Corrects the citizen's hazard category — only accepted while the
+    # report sits in Under Review and always paired with a remark.
+    category_id = serializers.IntegerField(required=False)
     # DO 47 §2: name of the technical personnel who validated the works —
     # required when transitioning to Resolved.
     validated_by_name = serializers.CharField(required=False, allow_blank=True)

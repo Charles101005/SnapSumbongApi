@@ -35,12 +35,45 @@ class UpdateProfileRequestSerializer(serializers.Serializer):
 
     gender = serializers.ChoiceField(choices=Users.GenderChoices.choices)
     birth_date = serializers.DateField()
-    street_address = serializers.CharField(max_length=255)
 
-    region_code = serializers.CharField(validators=[ten_digit_psgc_code_validator])
-    province_code = serializers.CharField(validators=[ten_digit_psgc_code_validator])
-    city_code = serializers.CharField(validators=[ten_digit_psgc_code_validator])
-    barangay_code = serializers.CharField(validators=[ten_digit_psgc_code_validator])
+    # Address fields are optional (citizens may leave them empty) and
+    # clearable: a blank/null value wipes the stored value. Real codes must
+    # still be 10-digit PSGC — DRF skips field validators on empty values.
+    street_address = serializers.CharField(
+        max_length=255, required=False, allow_blank=True, allow_null=True
+    )
+
+    region_code = serializers.CharField(
+        max_length=10, required=False, allow_blank=True, allow_null=True,
+        validators=[ten_digit_psgc_code_validator],
+    )
+    province_code = serializers.CharField(
+        max_length=10, required=False, allow_blank=True, allow_null=True,
+        validators=[ten_digit_psgc_code_validator],
+    )
+    city_code = serializers.CharField(
+        max_length=10, required=False, allow_blank=True, allow_null=True,
+        validators=[ten_digit_psgc_code_validator],
+    )
+    barangay_code = serializers.CharField(
+        max_length=10, required=False, allow_blank=True, allow_null=True,
+        validators=[ten_digit_psgc_code_validator],
+    )
+
+    def validate_street_address(self, value):
+        return value or None
+
+    def validate_region_code(self, value):
+        return value or None
+
+    def validate_province_code(self, value):
+        return value or None
+
+    def validate_city_code(self, value):
+        return value or None
+
+    def validate_barangay_code(self, value):
+        return value or None
 
     def validate(self, attrs):
         if 'email' in self.initial_data:

@@ -57,6 +57,18 @@ MandatorySeverityStatusError = DomainError(
     error_code="MANDATORY_SEVERITY_STATUS",
 )
 
+CategoryChangeNotPermittedError = DomainError(
+    detail="The hazard category can only be changed while the report is Under Review.",
+    status_code=status.HTTP_409_CONFLICT,
+    error_code="CATEGORY_CHANGE_NOT_PERMITTED",
+)
+
+MandatoryCategoryRemarksError = DomainError(
+    detail="A detailed remark is required when changing the hazard category.",
+    status_code=status.HTTP_400_BAD_REQUEST,
+    error_code="MANDATORY_CATEGORY_REMARKS",
+)
+
 ReportNotResolvedError = DomainError(
     detail="Only reports with resolved status can be confirmed by the reporter.",
     status_code=status.HTTP_409_CONFLICT,

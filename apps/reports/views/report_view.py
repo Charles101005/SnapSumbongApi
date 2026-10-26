@@ -156,6 +156,7 @@ class ReportDetailView(APIView):
             report_number=report_number,
             new_status_str=validated_data.get("status"),
             new_severity_str=validated_data.get("severity"),
+            new_category_id=validated_data.get("category_id"),
             remarks=validated_data.get("remarks"),
             resolution_images=validated_data.get("resolution_images"),
             validated_by_name=validated_data.get("validated_by_name")

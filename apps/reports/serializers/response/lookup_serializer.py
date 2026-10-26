@@ -11,6 +11,9 @@ class LookupReportResponseSerializer(serializers.Serializer):
             {
                 "hazard_id": category.hazard_id,
                 "hazard_name": category.hazard_name,
+                # DO 47 §4.1 response time — the edit modal uses it to preview
+                # the recalculated due date before a category change is saved.
+                "response_time_days": category.response_time_days,
             }
             for category in obj["categories"]
         ]
