@@ -313,6 +313,51 @@ class AuditLogService:
         )
 
     @staticmethod
+    def log_report_category_change(
+            *,
+            actor: Users,
+            old_category: str,
+            new_category: str,
+            remarks: str|None=None,
+            old_due_at=None,
+            new_due_at=None,
+            report: HazardReports,
+    ) -> None:
+        if isinstance(remarks, str):
+            remarks = remarks.strip()
+
+        payload = {
+            "category_change": {"from": old_category, "to": new_category},
+            "remarks": remarks,
+        }
+
+        # The recalculated SLA deadline rides along so the audit trail can
+        # explain a retroactive Overdue flip caused by a shorter response time.
+        if old_due_at or new_due_at:
+            payload["due_at"] = {
+                "from": old_due_at.isoformat() if old_due_at else None,
+                "to": new_due_at.isoformat() if new_due_at else None,
+            }
+
+        actor_str = actor.user_number
+        description = (
+            f"REPORT {report.report_number} category was changed"
+            f" from {old_category} to {new_category} by {actor_str}"
+        )
+
+        if remarks:
+            description += f" with the remarks: \"{remarks}\""
+
+        AuditLogService._log(
+            actor_id=actor.user_id,
+            action=AuditLogs.ActionType.CATEGORY_CHANGE,
+            module=AuditLogs.ModuleType.REPORT,
+            description=description,
+            payload=payload,
+            target_object=report
+        )
+
+    @staticmethod
     def _authorized_audit_logs(user: Users):
         allowed_modules = []
         if AuthorizationService.has_perm(user, AllPermissions.AUDITS.READ_SYSTEM_LOGS):

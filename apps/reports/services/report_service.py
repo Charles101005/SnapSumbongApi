@@ -34,6 +34,8 @@ from apps.reports.domain_errors.report_error import (
     ReportNotTransferableError,
     InvalidTransferTargetError,
     AlreadyAssignedToTargetError,
+    CategoryChangeNotPermittedError,
+    MandatoryCategoryRemarksError,
 )
 from apps.accounts.services import UserService
 from apps.audits.services import AuditLogService
@@ -354,6 +356,7 @@ class ReportService:
             report_number: str,
             new_status_str: str|None=None,
             new_severity_str: str|None=None,
+            new_category_id: int|None=None,
             remarks: str|None=None,
             resolution_images: list[dict]|None=None,
             validated_by_name: str|None=None
@@ -370,8 +373,51 @@ class ReportService:
         new_severity_str = new_severity_str.strip().upper() if new_severity_str else None
         remarks = remarks.strip() if remarks else None
 
-        if (remarks and not new_status_str) or (resolution_images and not new_status_str):
+        # A category correction is a remark-driven fix that needs no status
+        # change, so remarks are allowed without one when category_id rides along.
+        if (remarks and not new_status_str and not new_category_id) or (resolution_images and not new_status_str):
             return DomainResult.error(InvalidReportUpdateError)
+
+        # Validated against the status as the request found it (before any
+        # transition below applies): the category is only editable while the
+        # report sits in Under Review — the verification stage where a
+        # misclassified citizen submission gets caught.
+        if new_category_id is not None:
+            if HazardReports.Status(report.status) != HazardReports.Status.UNDER_REVIEW:
+                return DomainResult.error(CategoryChangeNotPermittedError)
+
+            if not remarks:
+                return DomainResult.error(MandatoryCategoryRemarksError)
+
+            if new_category_id != report.category_id:
+                new_category = HazardCategories.objects.get_by_id_or_none(new_category_id)
+                if not new_category:
+                    raise InvalidHazardCategoryException()
+
+                old_category_name = report.category.hazard_name
+                old_due_at = report.due_at
+
+                report.category = new_category
+                updated_fields.append("category")
+
+                # DO 47 s.2024 §4.1: the SLA clock stays anchored to report
+                # creation (when the defect was noted) and runs for the
+                # corrected category's response time. A shorter window may
+                # land in the past — flagged Overdue retroactively on purpose:
+                # the defect has in fact been known longer than the corrected
+                # category allows.
+                report.due_at = report.created_at + timedelta(days=new_category.response_time_days)
+                updated_fields.append("due_at")
+
+                AuditLogService.log_report_category_change(
+                    actor=user,
+                    old_category=old_category_name,
+                    new_category=new_category.hazard_name,
+                    remarks=remarks,
+                    old_due_at=old_due_at,
+                    new_due_at=report.due_at,
+                    report=report,
+                )
 
         if new_status_str:
             if new_status_str not in HazardReports.Status:

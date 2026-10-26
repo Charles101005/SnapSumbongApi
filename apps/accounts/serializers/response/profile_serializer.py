@@ -19,6 +19,8 @@ class GetProfileResponseSerializer(serializers.Serializer):
     city_code = serializers.CharField(default=None)
     barangay_code = serializers.CharField(default=None)
 
+    created_at = serializers.DateTimeField()
+
 
 class GetProfileImageSignatureResponseSerializer(serializers.Serializer):
     api_key = serializers.CharField()

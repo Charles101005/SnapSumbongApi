@@ -125,6 +125,9 @@ class GetReportDetailResponseSerializer(serializers.Serializer):
     validated_by_name = serializers.CharField(allow_null=True)
     validated_by = serializers.SerializerMethodField()
     category = serializers.SerializerMethodField()
+    # Raw FK id so the edit modal can preselect the current category —
+    # the `category` field above is only the display name.
+    category_id = serializers.IntegerField()
     severity = serializers.CharField()
     created_at = serializers.DateTimeField()
 
@@ -238,6 +241,7 @@ class GetReportDetailResponseSerializer(serializers.Serializer):
             data.pop("validated_by_name", None)
             data.pop("validated_by", None)
             data.pop("category", None)
+            data.pop("category_id", None)
             data.pop("severity", None)
             data.pop("created_at", None)
             # Internal staff-only working notes; citizens only ever see the

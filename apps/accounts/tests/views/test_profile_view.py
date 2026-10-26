@@ -134,6 +134,117 @@ class TestProfileView:
         assert response.status_code == 400
         assert 'gender' in response.json()
 
+    def test_get_profile_includes_created_at(self, api_client, citizen_role):
+        user = UserFactory(role=citizen_role)
+        api_client.force_authenticate(user=user)
+
+        response = api_client.get(PROFILE_URL)
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data['created_at'][:10] == user.created_at.date().isoformat()
+
+    def test_patch_address_fields_are_optional(self, api_client, citizen_role):
+        user = UserFactory(
+            role=citizen_role,
+            street_address='123 Rizal St',
+            region_code='1300000000',
+            province_code='1339000000',
+            city_code='1339000000',
+            barangay_code='1339010000',
+        )
+        api_client.force_authenticate(user=user)
+
+        response = api_client.patch(PROFILE_URL, {'first_name': 'Updated'}, format='json')
+
+        assert response.status_code == 200
+        user.refresh_from_db()
+        assert user.first_name == 'Updated'
+        assert user.street_address == '123 Rizal St'
+        assert user.region_code == '1300000000'
+
+    def test_patch_blank_address_values_clear_fields(self, api_client, citizen_role):
+        user = UserFactory(
+            role=citizen_role,
+            street_address='123 Rizal St',
+            region_code='1300000000',
+            province_code='1339000000',
+            city_code='1339000000',
+            barangay_code='1339010000',
+        )
+        api_client.force_authenticate(user=user)
+
+        response = api_client.patch(
+            PROFILE_URL,
+            {
+                'street_address': '',
+                'region_code': '',
+                'province_code': '',
+                'city_code': '',
+                'barangay_code': '',
+            },
+            format='json',
+        )
+
+        assert response.status_code == 200
+        user.refresh_from_db()
+        assert user.street_address is None
+        assert user.region_code is None
+        assert user.province_code is None
+        assert user.city_code is None
+        assert user.barangay_code is None
+
+    def test_patch_null_address_values_clear_fields(self, api_client, citizen_role):
+        user = UserFactory(
+            role=citizen_role,
+            street_address='123 Rizal St',
+            region_code='1300000000',
+        )
+        api_client.force_authenticate(user=user)
+
+        response = api_client.patch(
+            PROFILE_URL,
+            {'street_address': None, 'region_code': None},
+            format='json',
+        )
+
+        assert response.status_code == 200
+        user.refresh_from_db()
+        assert user.street_address is None
+        assert user.region_code is None
+
+    def test_patch_street_address_only_leaves_codes_untouched(self, api_client, citizen_role):
+        user = UserFactory(
+            role=citizen_role,
+            street_address='123 Rizal St',
+            region_code='1300000000',
+            province_code='1339000000',
+            city_code='1339000000',
+            barangay_code='1339010000',
+        )
+        api_client.force_authenticate(user=user)
+
+        response = api_client.patch(
+            PROFILE_URL,
+            {'street_address': '456 Bonifacio Ave'},
+            format='json',
+        )
+
+        assert response.status_code == 200
+        user.refresh_from_db()
+        assert user.street_address == '456 Bonifacio Ave'
+        assert user.region_code == '1300000000'
+        assert user.barangay_code == '1339010000'
+
+    def test_patch_invalid_region_psgc_code_returns_400(self, api_client, citizen_role):
+        user = UserFactory(role=citizen_role)
+        api_client.force_authenticate(user=user)
+
+        response = api_client.patch(PROFILE_URL, {'region_code': 'abc'}, format='json')
+
+        assert response.status_code == 400
+        assert 'region_code' in response.json()
+
 
 @pytest.mark.django_db
 class TestChangePasswordView:
