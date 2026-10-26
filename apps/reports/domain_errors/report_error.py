@@ -64,7 +64,7 @@ ReportNotResolvedError = DomainError(
 )
 
 ValidatorNameRequiredError = DomainError(
-    detail="The name of the DO 47 validator is required when transitioning to resolved status.",
+    detail="The name of the validator is required when transitioning to resolved status.",
     status_code=status.HTTP_400_BAD_REQUEST,
     error_code="VALIDATOR_NAME_REQUIRED",
 )
