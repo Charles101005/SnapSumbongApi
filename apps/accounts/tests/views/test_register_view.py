@@ -1,6 +1,7 @@
 from datetime import timedelta
 
 import pytest
+from django.conf import settings
 from django.contrib.auth.hashers import make_password
 from django.utils import timezone
 
@@ -12,6 +13,7 @@ from apps.accounts.tests.factories.verification_factory import TEST_OTP
 REGISTER_URL = '/accounts/register/'
 VERIFY_URL = '/accounts/register/verify/'
 RESEND_URL = '/accounts/register/resend/'
+CURRENT_USER_URL = '/accounts/auth/user/'
 
 REGISTRATION = VerificationRequest.VerificationPurpose.REGISTRATION
 
@@ -124,6 +126,59 @@ class TestVerifyRegistrationView:
         assert user.role_id == citizen_role.role_id
         assert not VerificationRequest.objects.filter(pk=verification.pk).exists()
 
+    def test_correct_otp_returns_access_and_sets_refresh_cookie(self, api_client, citizen_role):
+        verification = _seed_verification()
+
+        response = api_client.post(
+            VERIFY_URL,
+            {'email': verification.email, 'otp': TEST_OTP},
+            format='json',
+        )
+
+        assert response.status_code == 201
+        data = response.json()
+        assert data['access']
+        assert 'refresh' not in data
+
+        refresh_cookie = response.cookies['refresh']
+        assert refresh_cookie.value
+        assert refresh_cookie['httponly']
+        assert refresh_cookie['path'] == '/accounts'
+        assert refresh_cookie['samesite'] == 'Lax'
+        expected_max_age = int(settings.SIMPLE_JWT['REFRESH_TOKEN_LIFETIME'].total_seconds())
+        assert int(refresh_cookie['max-age']) == expected_max_age
+
+    def test_correct_otp_ensures_csrf_cookie(self, api_client, citizen_role):
+        verification = _seed_verification()
+
+        response = api_client.post(
+            VERIFY_URL,
+            {'email': verification.email, 'otp': TEST_OTP},
+            format='json',
+        )
+
+        assert response.status_code == 201
+        assert 'csrftoken' in response.cookies
+
+    def test_access_token_authenticates_created_user(self, api_client, citizen_role):
+        verification = _seed_verification()
+
+        response = api_client.post(
+            VERIFY_URL,
+            {'email': verification.email, 'otp': TEST_OTP},
+            format='json',
+        )
+
+        access = response.json()['access']
+        api_client.credentials(HTTP_AUTHORIZATION=f'Bearer {access}')
+
+        current_user = api_client.get(CURRENT_USER_URL)
+
+        assert current_user.status_code == 200
+        data = current_user.json()
+        assert data['email'] == verification.email
+        assert data['is_staff'] is False
+
     def test_wrong_otp_returns_400(self, api_client):
         verification = _seed_verification()
 
@@ -135,6 +190,8 @@ class TestVerifyRegistrationView:
 
         assert response.status_code == 400
         assert response.json()['error_code'] == 'INVALID_VERIFICATION_OTP'
+        assert 'access' not in response.json()
+        assert 'refresh' not in response.cookies
 
     def test_unknown_email_returns_404(self, api_client):
         response = api_client.post(
