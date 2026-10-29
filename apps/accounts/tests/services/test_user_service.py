@@ -498,6 +498,58 @@ class TestUpdateStaff:
         target.refresh_from_db()
         assert target.first_name == 'Updated'
 
+    def test_info_update_updates_birth_date_serializes_audit_payload(
+        self, system_admin_role, report_officer_role, mocker
+    ):
+        mocker.patch('shared.authorization.service.AuthorizationService.require_perm')
+        actor = UserFactory(role=system_admin_role, is_staff=True)
+        target = UserFactory(
+            role=report_officer_role,
+            is_staff=True,
+            birth_date=date(1990, 1, 1),
+        )
+
+        result = UserService.update_staff(
+            actor=actor,
+            user_number=target.user_number,
+            fields={'birth_date': date(1995, 5, 20)},
+        )
+
+        assert result.is_success
+        target.refresh_from_db()
+        assert target.birth_date == date(1995, 5, 20)
+        log = AuditLogs.objects.get(action=AuditLogs.ActionType.UPDATE)
+        assert log.payload['changes']['birth_date'] == {
+            'from': '1990-01-01',
+            'to': '1995-05-20',
+        }
+
+    def test_info_update_updates_profile_picture_and_street_address(
+        self, system_admin_role, report_officer_role, mocker
+    ):
+        mocker.patch('shared.authorization.service.AuthorizationService.require_perm')
+        actor = UserFactory(role=system_admin_role, is_staff=True)
+        target = UserFactory(
+            role=report_officer_role,
+            is_staff=True,
+            profile_picture='https://example.com/old.jpg',
+            street_address='Old Address',
+        )
+
+        result = UserService.update_staff(
+            actor=actor,
+            user_number=target.user_number,
+            fields={
+                'profile_picture': 'https://example.com/new.jpg',
+                'street_address': 'New Address',
+            },
+        )
+
+        assert result.is_success
+        target.refresh_from_db()
+        assert target.profile_picture == 'https://example.com/new.jpg'
+        assert target.street_address == 'New Address'
+
     def test_info_update_requires_update_any_permission(self, system_admin_role, report_officer_role, mocker):
         require_mock = mocker.patch(
             'shared.authorization.service.AuthorizationService.require_perm',

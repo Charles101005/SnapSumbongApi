@@ -2,6 +2,7 @@ import pytest
 
 from apps.accounts.models import Users
 from apps.accounts.tests.factories import UserFactory
+from external.storage import StorageService, UploadIntent
 
 
 EMPLOYEES_URL = '/accounts/employees/'
@@ -248,6 +249,37 @@ class TestEmployeeDetailPatch:
         staff.refresh_from_db()
         assert staff.first_name == 'Updated'
         assert staff.contact_number == '09999999999'
+
+    def test_admin_can_update_profile_picture_and_street_address(
+            self,
+            api_client,
+            system_admin_role,
+            report_officer_role,
+            mocker,
+    ):
+        mocker.patch('shared.authorization.service.AuthorizationService.require_perm')
+        admin = UserFactory(role=system_admin_role, is_staff=True)
+        staff = UserFactory(role=report_officer_role, is_staff=True)
+        api_client.force_authenticate(user=admin)
+        base_url = StorageService.get_expected_response_base_url()
+
+        response = api_client.patch(
+            f'{EMPLOYEES_URL}{staff.user_number}/',
+            {
+                'profile_picture': (
+                    f'{base_url}{UploadIntent.USER_PROFILES.value}/new_pfp.jpg'
+                ),
+                'street_address': '456 Bonifacio Ave',
+            },
+            format='json',
+        )
+
+        assert response.status_code == 200
+        staff.refresh_from_db()
+        assert staff.profile_picture == (
+            f'{base_url}{UploadIntent.USER_PROFILES.value}/new_pfp.jpg'
+        )
+        assert staff.street_address == '456 Bonifacio Ave'
 
     def test_admin_can_change_role(
             self,

@@ -26,12 +26,23 @@ class ChangePasswordRequestSerializer(BasePasswordValidationSerializer):
 
 
 class UpdateProfileRequestSerializer(serializers.Serializer):
+    # Fields that staff accounts must never leave empty or null. Citizens may
+    # leave them blank/null (or omit them on a partial update).
+    STAFF_REQUIRED_FIELDS = (
+        "contact_number",
+        "street_address",
+        "region_code",
+        "province_code",
+        "city_code",
+        "barangay_code",
+    )
+
     last_name = serializers.CharField(max_length=50)
     first_name = serializers.CharField(max_length=50)
-    middle_name = serializers.CharField(max_length=50)
-    contact_number = serializers.CharField(min_length=11, max_length=11)
+    middle_name = serializers.CharField(max_length=50, allow_blank=True, allow_null=True)
+    contact_number = serializers.CharField(min_length=11, max_length=11, allow_blank=True, allow_null=True)
     is_notified = serializers.BooleanField()
-    profile_picture = serializers.URLField(max_length=500)
+    profile_picture = serializers.URLField(max_length=500, allow_blank=True, allow_null=True)
 
     gender = serializers.ChoiceField(choices=Users.GenderChoices.choices)
     birth_date = serializers.DateField()
@@ -40,23 +51,23 @@ class UpdateProfileRequestSerializer(serializers.Serializer):
     # clearable: a blank/null value wipes the stored value. Real codes must
     # still be 10-digit PSGC — DRF skips field validators on empty values.
     street_address = serializers.CharField(
-        max_length=255, required=False, allow_blank=True, allow_null=True
+        max_length=255, allow_blank=True, allow_null=True
     )
 
     region_code = serializers.CharField(
-        max_length=10, required=False, allow_blank=True, allow_null=True,
+        max_length=10, allow_blank=True, allow_null=True,
         validators=[ten_digit_psgc_code_validator],
     )
     province_code = serializers.CharField(
-        max_length=10, required=False, allow_blank=True, allow_null=True,
+        max_length=10, allow_blank=True, allow_null=True,
         validators=[ten_digit_psgc_code_validator],
     )
     city_code = serializers.CharField(
-        max_length=10, required=False, allow_blank=True, allow_null=True,
+        max_length=10, allow_blank=True, allow_null=True,
         validators=[ten_digit_psgc_code_validator],
     )
     barangay_code = serializers.CharField(
-        max_length=10, required=False, allow_blank=True, allow_null=True,
+        max_length=10, allow_blank=True, allow_null=True,
         validators=[ten_digit_psgc_code_validator],
     )
 
@@ -81,9 +92,25 @@ class UpdateProfileRequestSerializer(serializers.Serializer):
                 'email': 'Email changes must be verified. '
                          'Please use POST /profile/email-change/request/ to change your email address.'
             })
+
+        request = self.context.get("request")
+        user = getattr(request, "user", None) if request else None
+
+        if user and user.is_staff:
+            errors = {
+                field: "This field cannot be empty"
+                for field in self.STAFF_REQUIRED_FIELDS
+                if field in attrs and attrs.get(field) in (None, "")
+            }
+            if errors:
+                raise serializers.ValidationError(errors)
+
         return attrs
 
     def validate_profile_picture(self, value):
+        if value in (None, ""):
+            return None
+
         expected_base_url = StorageService.get_expected_response_base_url()
         expected_folder = f"/{UploadIntent.USER_PROFILES.value}/"
 

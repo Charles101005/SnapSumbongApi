@@ -23,7 +23,13 @@ from apps.accounts.serializers.response.lookup_serializer import LookupRolesResp
     AllPermissions.AUDITS.READ_REPORT_LOGS,
 )
 def lookup_roles_view(request: Request) -> Response:
-    result = RoleService.list_roles_for_lookup()
+    exclude_citizen = request.query_params.get(
+        "exclude_citizen", ""
+    ).lower() in {"true", "1"}
+
+    result = RoleService.list_roles_for_lookup(
+        exclude_citizen=exclude_citizen
+    )
 
     return DomainResultResponse(result).respond(
         serializer_class=LookupRolesResponseSerializer,

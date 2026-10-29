@@ -37,6 +37,15 @@ class TestListRolesForLookup:
         assert 'Inactive Role' not in role_names
 
 
+    def test_excludes_citizen_role_when_requested(self, citizen_role, report_officer_role):
+        result = RoleService.list_roles_for_lookup(exclude_citizen=True)
+
+        assert result.is_success
+        role_ids = [row['role_id'] for row in result.value]
+        assert citizen_role.role_id not in role_ids
+        assert report_officer_role.role_id in role_ids
+
+
 @pytest.mark.django_db
 class TestListGroupedPermissions:
     def test_groups_permissions_by_uppercased_module(self):

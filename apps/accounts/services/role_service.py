@@ -7,6 +7,7 @@ from django.db.models import Q
 
 from apps.accounts.models import Roles, Permissions
 from shared.results import DomainResult
+from shared.authorization.default_initial_role import AllDefaultRoles
 from apps.audits.services import AuditLogService
 from apps.accounts.models import Users
 from apps.accounts.exceptions.role_exception import (
@@ -19,9 +20,15 @@ from apps.accounts.domain_errors.role_error import RoleAlreadyExistError, Permis
 
 class RoleService:
     @staticmethod
-    def list_roles_for_lookup() -> DomainResult[Roles]:
-        roles = Roles.objects.filter(is_active=True).values("role_id", "role_name")
-        return DomainResult.success(roles)
+    def list_roles_for_lookup(*, exclude_citizen: bool = False) -> DomainResult[Roles]:
+        roles = Roles.objects.filter(is_active=True)
+
+        if exclude_citizen:
+            roles = roles.exclude(
+                role_code=AllDefaultRoles.get_citizen_role().code
+            )
+
+        return DomainResult.success(roles.values("role_id", "role_name"))
 
     @staticmethod
     def list_permissions_grouped_by_module() -> DomainResult[dict[str, list[dict[str, Any]]]]:

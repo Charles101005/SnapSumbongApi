@@ -3,6 +3,7 @@ from rest_framework.validators import UniqueValidator
 
 from apps.accounts.models import Users
 from apps.accounts.validators.serializer_validator import ten_digit_psgc_code_validator
+from external.storage import StorageService, UploadIntent
 
 
 class CreateEmployeeRequestSerializer(serializers.Serializer):
@@ -52,10 +53,12 @@ class UserUpdateRequestSerializer(serializers.Serializer):
 
     last_name = serializers.CharField(max_length=50)
     first_name = serializers.CharField(max_length=50)
-    middle_name = serializers.CharField(required=False, max_length=50, default=None, allow_null=True, allow_blank=True)
+    middle_name = serializers.CharField(required=False, max_length=50, allow_null=True, allow_blank=True)
     contact_number = serializers.CharField(min_length=11, max_length=11)
     birth_date = serializers.DateField()
     gender = serializers.ChoiceField(choices=Users.GenderChoices.choices)
+    profile_picture = serializers.URLField(max_length=500, allow_blank=True, allow_null=True)
+
     street_address = serializers.CharField(max_length=255)
     region_code = serializers.CharField(validators=[ten_digit_psgc_code_validator])
     province_code = serializers.CharField(validators=[ten_digit_psgc_code_validator])
@@ -63,6 +66,18 @@ class UserUpdateRequestSerializer(serializers.Serializer):
     barangay_code = serializers.CharField(validators=[ten_digit_psgc_code_validator])
 
     is_active = serializers.BooleanField()
+
+    def validate_profile_picture(self, value):
+        if value in (None, ""):
+            return None
+
+        expected_base_url = StorageService.get_expected_response_base_url()
+        expected_folder = f"/{UploadIntent.USER_PROFILES.value}/"
+
+        if not value.startswith(expected_base_url) or expected_folder not in value:
+            raise serializers.ValidationError("Invalid URL")
+
+        return value
 
     def validate(self, attrs):
         BASE_FIELDS = {
@@ -78,6 +93,7 @@ class UserUpdateRequestSerializer(serializers.Serializer):
             "contact_number",
             "birth_date",
             "gender",
+            "profile_picture",
             "street_address",
             "region_code",
             "province_code",

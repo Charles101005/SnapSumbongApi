@@ -21,6 +21,23 @@ class TestLookupRolesView:
         assert citizen_role.role_name in role_names
         assert all('role_id' in row and 'role_name' in row for row in data)
 
+    def test_can_exclude_citizen_role(
+            self,
+            api_client,
+            system_admin_role,
+            citizen_role,
+            report_officer_role,
+    ):
+        admin = UserFactory(role=system_admin_role, is_staff=True)
+        api_client.force_authenticate(user=admin)
+
+        response = api_client.get(LOOKUP_ROLES_URL, {'exclude_citizen': 'true'})
+
+        assert response.status_code == 200
+        role_names = [row['role_name'] for row in response.json()]
+        assert citizen_role.role_name not in role_names
+        assert report_officer_role.role_name in role_names
+
     def test_supervisor_can_lookup_roles_via_audit_permission(
             self,
             api_client,

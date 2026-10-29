@@ -245,6 +245,65 @@ class TestProfileView:
         assert response.status_code == 400
         assert 'region_code' in response.json()
 
+    def test_staff_patch_blank_or_null_required_fields_returns_400(
+        self, api_client, report_officer_role
+    ):
+        user = UserFactory(role=report_officer_role, is_staff=True)
+        api_client.force_authenticate(user=user)
+
+        response = api_client.patch(
+            PROFILE_URL,
+            {
+                'contact_number': '',
+                'street_address': None,
+                'region_code': '',
+                'province_code': None,
+                'city_code': '',
+                'barangay_code': None,
+            },
+            format='json',
+        )
+
+        assert response.status_code == 400
+        data = response.json()
+        for field in (
+            'contact_number',
+            'street_address',
+            'region_code',
+            'province_code',
+            'city_code',
+            'barangay_code',
+        ):
+            assert field in data
+
+    def test_staff_patch_without_optional_fields_succeeds(
+        self, api_client, report_officer_role
+    ):
+        user = UserFactory(role=report_officer_role, is_staff=True)
+        api_client.force_authenticate(user=user)
+
+        response = api_client.patch(PROFILE_URL, {'first_name': 'Updated'}, format='json')
+
+        assert response.status_code == 200
+        user.refresh_from_db()
+        assert user.first_name == 'Updated'
+
+    def test_staff_middle_name_can_be_blank_or_null(
+        self, api_client, report_officer_role
+    ):
+        user = UserFactory(
+            role=report_officer_role, is_staff=True, middle_name='Santos'
+        )
+        api_client.force_authenticate(user=user)
+
+        response = api_client.patch(
+            PROFILE_URL, {'middle_name': None}, format='json'
+        )
+
+        assert response.status_code == 200
+        user.refresh_from_db()
+        assert user.middle_name is None
+
 
 @pytest.mark.django_db
 class TestChangePasswordView:

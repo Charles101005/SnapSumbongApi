@@ -385,6 +385,14 @@ class UserService:
     }
 
     @staticmethod
+    def _serialize_change_value(value: Any) -> Any:
+        # Audit payloads are stored in a JSONField, which cannot serialize
+        # Python date/datetime objects (e.g. birth_date).
+        if isinstance(value, date):
+            return value.isoformat()
+        return value
+
+    @staticmethod
     def _describe_changes(changes: dict[str, dict[str, Any]]) -> str:
         parts: list[str] = []
         for field, change in changes.items():
@@ -432,6 +440,7 @@ class UserService:
             "contact_number",
             "birth_date",
             "gender",
+            "profile_picture",
             "street_address",
             "region_code",
             "province_code",
@@ -448,7 +457,10 @@ class UserService:
         if updated_info_fields:
             AuthorizationService.require_perm(actor, AllPermissions.EMPLOYEES.UPDATE_ANY)
             for field, value in updated_info_fields.items():
-                changes[field] = {"from": getattr(user, field), "to": value}
+                changes[field] = {
+                    "from": UserService._serialize_change_value(getattr(user, field)),
+                    "to": UserService._serialize_change_value(value),
+                }
                 setattr(user, field, value)
                 updated_fields.append(field)
 
