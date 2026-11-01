@@ -34,7 +34,7 @@ class CreateReportRequestSerializer(serializers.Serializer):
         max_value=Decimal('180.0')
     )
     address = serializers.CharField(min_length=10, max_length=255)
-    description = serializers.CharField(min_length=5)
+    description = serializers.CharField(min_length=5, max_length=255)
     is_anonymous = serializers.BooleanField(default=False)
 
     image_urls = serializers.ListField(

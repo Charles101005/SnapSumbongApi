@@ -98,3 +98,9 @@ AlreadyAssignedToTargetError = DomainError(
     status_code=status.HTTP_409_CONFLICT,
     error_code="ALREADY_ASSIGNED_TO_TARGET",
 )
+
+ReportBlockedByWarningsError = DomainError(
+    detail="Your account has reached the maximum allowed warnings and can no longer submit hazard reports.",
+    status_code=status.HTTP_403_FORBIDDEN,
+    error_code="REPORT_BLOCKED_BY_WARNINGS",
+)

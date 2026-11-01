@@ -8,7 +8,7 @@ from django.db import transaction
 from django.db.models import Count, QuerySet, Q
 from django.conf import settings
 
-from apps.accounts.models import Users
+from apps.accounts.models import Users, CitizenWarnings
 from shared.results import DomainResult
 from external.storage import StorageService, UploadIntent
 from apps.reports.models import HazardReports, HazardCategories, ReportImages
@@ -36,8 +36,10 @@ from apps.reports.domain_errors.report_error import (
     AlreadyAssignedToTargetError,
     CategoryChangeNotPermittedError,
     MandatoryCategoryRemarksError,
+    ReportBlockedByWarningsError,
 )
 from apps.accounts.services import UserService
+from apps.accounts.services.moderation_service import BAN_WARNING_THRESHOLD
 from apps.audits.services import AuditLogService
 from shared.authorization.service import AuthorizationService
 from shared.authorization import AllPermissions
@@ -135,6 +137,12 @@ class ReportService:
         return assigned_staff
 
     @staticmethod
+    def _has_reached_warning_limit(*, user_id: int) -> bool:
+        # Citizens at or above the ban threshold are no longer allowed to
+        # report, even if moderation has not banned the account yet.
+        return CitizenWarnings.objects.filter(user_id=user_id).count() >= BAN_WARNING_THRESHOLD
+
+    @staticmethod
     def _authorized_reports(user: Users) -> QuerySet[HazardReports]:
         if AuthorizationService.has_perm(user, AllPermissions.REPORTS.READ_ALL):
             queryset = HazardReports.objects.all()
@@ -175,6 +183,11 @@ class ReportService:
         if AuthorizationService.has_perm(user, AllPermissions.REPORTS.UPDATE_ASSIGNED):
             intent: UploadIntent = UploadIntent.REPORT_RESOLUTION
         else:
+            # Only citizen report uploads are gated; officers requesting
+            # resolution-image signatures must still be able to work.
+            if ReportService._has_reached_warning_limit(user_id=user.user_id):
+                return DomainResult.error(ReportBlockedByWarningsError)
+
             intent: UploadIntent = UploadIntent.HAZARD_REPORTS
 
         now = timezone.now()
@@ -204,6 +217,9 @@ class ReportService:
             is_anonymous: bool,
             image_urls: list[str],
     ) -> DomainResult[HazardReports]:
+        if ReportService._has_reached_warning_limit(user_id=reported_by_id):
+            return DomainResult.error(ReportBlockedByWarningsError)
+
         category = HazardCategories.objects.get_by_id_or_none(category_id)
 
         if not category:

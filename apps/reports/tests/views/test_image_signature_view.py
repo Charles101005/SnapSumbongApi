@@ -1,6 +1,7 @@
 import pytest
 from django.conf import settings
 
+from apps.accounts.models import CitizenWarnings
 from apps.accounts.tests.factories import UserFactory
 from external.storage import UploadIntent
 
@@ -89,3 +90,55 @@ class TestReportImageSignatureView:
 
         assert response.status_code == 403
         storage_mock.assert_not_called()
+
+    def test_citizen_with_three_warnings_cannot_request_a_signature(
+        self, api_client, citizen_role, mocker
+    ):
+        storage_mock = mocker.patch(
+            "external.storage.StorageService.get_upload_credentials",
+            return_value=CREDENTIALS,
+        )
+        user = UserFactory(role=citizen_role)
+        for _ in range(3):
+            CitizenWarnings.objects.create(user=user, reason="Repeated invalid reports.")
+
+        api_client.force_authenticate(user=user)
+        response = api_client.get("/reports/image-signature/", {"image_count": 1})
+
+        assert response.status_code == 403
+        assert response.json()["error_code"] == "REPORT_BLOCKED_BY_WARNINGS"
+        storage_mock.assert_not_called()
+
+    def test_citizen_below_the_warning_limit_can_request_a_signature(
+        self, api_client, citizen_role, mocker
+    ):
+        storage_mock = mocker.patch(
+            "external.storage.StorageService.get_upload_credentials",
+            return_value=CREDENTIALS,
+        )
+        user = UserFactory(role=citizen_role)
+        for _ in range(2):
+            CitizenWarnings.objects.create(user=user, reason="Repeated invalid reports.")
+
+        api_client.force_authenticate(user=user)
+        response = api_client.get("/reports/image-signature/", {"image_count": 1})
+
+        assert response.status_code == 200
+        storage_mock.assert_called_once()
+
+    def test_officer_with_three_warnings_can_still_request_resolution_signatures(
+        self, api_client, report_officer_role, mocker
+    ):
+        storage_mock = mocker.patch(
+            "external.storage.StorageService.get_upload_credentials",
+            return_value=CREDENTIALS,
+        )
+        officer = UserFactory(role=report_officer_role, is_staff=True)
+        for _ in range(3):
+            CitizenWarnings.objects.create(user=officer, reason="Legacy warning.")
+
+        api_client.force_authenticate(user=officer)
+        response = api_client.get("/reports/image-signature/", {"image_count": 1})
+
+        assert response.status_code == 200
+        assert storage_mock.call_args.kwargs["intent"] == UploadIntent.REPORT_RESOLUTION

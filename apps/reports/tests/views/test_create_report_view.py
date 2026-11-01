@@ -1,6 +1,7 @@
 import pytest
 
 from apps.audits.models import AuditLogs
+from apps.accounts.models import CitizenWarnings
 from apps.accounts.tests.factories import UserFactory
 from apps.reports.models import HazardReports, ReportImages
 from apps.reports.services import ReportService
@@ -146,6 +147,39 @@ class TestCreateReportView:
             "/reports/",
             _valid_payload(category, latitude="21.500000", longitude="115.000000"),
             format="json",
+        )
+
+        assert response.status_code == 201
+        assert HazardReports.objects.exists()
+
+    def test_citizen_with_three_warnings_cannot_submit_a_report(
+        self, api_client, citizen_role
+    ):
+        category = HazardCategoryFactory()
+        user = UserFactory(role=citizen_role)
+        for _ in range(3):
+            CitizenWarnings.objects.create(user=user, reason="Repeated invalid reports.")
+
+        api_client.force_authenticate(user=user)
+        response = api_client.post(
+            "/reports/", _valid_payload(category), format="json"
+        )
+
+        assert response.status_code == 403
+        assert response.json()["error_code"] == "REPORT_BLOCKED_BY_WARNINGS"
+        assert not HazardReports.objects.exists()
+
+    def test_citizen_below_the_warning_limit_can_still_submit_a_report(
+        self, api_client, citizen_role
+    ):
+        category = HazardCategoryFactory()
+        user = UserFactory(role=citizen_role)
+        for _ in range(2):
+            CitizenWarnings.objects.create(user=user, reason="Repeated invalid reports.")
+
+        api_client.force_authenticate(user=user)
+        response = api_client.post(
+            "/reports/", _valid_payload(category), format="json"
         )
 
         assert response.status_code == 201
