@@ -1,128 +1,128 @@
 [
   {
-    "region_code": "130000000",
-    "province_code": "137400000",
-    "city_code": "137404000",
-    "barangay_code": "137404021",
+    "region_code": "1300000000",
+    "province_code": "1300000000",
+    "city_code": "1380600000",
+    "barangay_code": "1380606034",
     "street_address": "Block 15 Lot 8, Pilot Area, Brgy. Commonwealth"
   },
   {
-    "region_code": "130000000",
-    "province_code": "137400000",
-    "city_code": "137404000",
-    "barangay_code": "137404012",
+    "region_code": "1300000000",
+    "province_code": "1300000000",
+    "city_code": "1380600000",
+    "barangay_code": "1380601213",
     "street_address": "Sitio Target, Phase 3, Brgy. Batasan Hills"
   },
   {
-    "region_code": "130000000",
-    "province_code": "137600000",
-    "city_code": "137602000",
-    "barangay_code": "137602010",
+    "region_code": "1300000000",
+    "province_code": "1300000000",
+    "city_code": "1380300000",
+    "barangay_code": "1380300008",
     "street_address": "54 Kalayaan Avenue, Brgy. Poblacion"
   },
   {
-    "region_code": "130000000",
-    "province_code": "137600000",
-    "city_code": "137602000",
-    "barangay_code": "137602018",
+    "region_code": "1300000000",
+    "province_code": "1300000000",
+    "city_code": "1380300000",
+    "barangay_code": "1380300026",
     "street_address": "Corner of J.P. Rizal and Sgt. Fabian Yabut St, Brgy. Guadalupe Nuevo"
   },
   {
-    "region_code": "130000000",
-    "province_code": "137500000",
-    "city_code": "137501000",
-    "barangay_code": "137501171",
+    "region_code": "1300000000",
+    "province_code": "1300000000",
+    "city_code": "1380200000",
+    "barangay_code": "1380200011",
     "street_address": "Block 2, Lot 14, Silver Creek Subdivision, Brgy. Barangay 171"
   },
   {
-    "region_code": "070000000",
-    "province_code": "070000000",
-    "city_code": "072217000",
-    "barangay_code": "072217032",
+    "region_code": "0700000000",
+    "province_code": "0701200000",
+    "city_code": "0701206000",
+    "barangay_code": "0701206004",
     "street_address": "Sitio Plaza, Salinas Drive, Brgy. Lahug"
   },
   {
-    "region_code": "070000000",
-    "province_code": "070000000",
-    "city_code": "072217000",
-    "barangay_code": "072217049",
+    "region_code": "0700000000",
+    "province_code": "0701200000",
+    "city_code": "0701222000",
+    "barangay_code": "0701222006",
     "street_address": "Block 5, San Jose dela Montaña St, Brgy. Mabolo"
   },
   {
-    "region_code": "070000000",
-    "province_code": "070000000",
-    "city_code": "072217000",
-    "barangay_code": "072217072",
+    "region_code": "0700000000",
+    "province_code": "0702200000",
+    "city_code": "0702227000",
+    "barangay_code": "0702227011",
     "street_address": "Purok San Antonio, V. Sotto Street, Brgy. San Antonio"
   },
   {
-    "region_code": "070000000",
-    "province_code": "070000000",
-    "city_code": "072226000",
-    "barangay_code": "072226027",
+    "region_code": "0700000000",
+    "province_code": "0702200000",
+    "city_code": "0702208000",
+    "barangay_code": "0702208028",
     "street_address": "Sitio Mahayahay, H. Cortes Street, Brgy. Subangdaku"
   },
   {
-    "region_code": "110000000",
-    "province_code": "110000000",
-    "city_code": "112402000",
-    "barangay_code": "112402073",
+    "region_code": "1100000000",
+    "province_code": "1102300000",
+    "city_code": "1102317000",
+    "barangay_code": "1102317004",
     "street_address": "Sitio Mahabang Buhangin, Brgy. Matina Aplaya"
   },
   {
-    "region_code": "110000000",
-    "province_code": "110000000",
-    "city_code": "112402000",
-    "barangay_code": "112402019",
+    "region_code": "1100000000",
+    "province_code": "1102500000",
+    "city_code": "1102504000",
+    "barangay_code": "1102504005",
     "street_address": "Block 12, Phase 1, DBP Village, Brgy. Buhangin (Poblacion)"
   },
   {
-    "region_code": "110000000",
-    "province_code": "110000000",
-    "city_code": "112402000",
-    "barangay_code": "112402035",
+    "region_code": "1100000000",
+    "province_code": "1108200000",
+    "city_code": "1108207000",
+    "barangay_code": "1108207003",
     "street_address": "Sitio Guba, Upper Gatungan, Brgy. Gatungan"
   },
   {
-    "region_code": "030000000",
-    "province_code": "035400000",
-    "city_code": "035413000",
-    "barangay_code": "035413022",
+    "region_code": "0300000000",
+    "province_code": "0300800000",
+    "city_code": "0300803000",
+    "barangay_code": "0300803018",
     "street_address": "MacArthur Highway corner Lazatin Blvd, Brgy. Dolores"
   },
   {
-    "region_code": "030000000",
-    "province_code": "035400000",
-    "city_code": "035413000",
-    "barangay_code": "035413031",
+    "region_code": "0300000000",
+    "province_code": "0301400000",
+    "city_code": "0301403000",
+    "barangay_code": "0301403002",
     "street_address": "Purok 2, Jose Abad Santos Avenue, Brgy. San Jose"
   },
   {
-    "region_code": "010000000",
-    "province_code": "012800000",
-    "city_code": "012801000",
-    "barangay_code": "012801004",
+    "region_code": "0100000000",
+    "province_code": "0102800000",
+    "city_code": "0102820000",
+    "barangay_code": "0102820005",
     "street_address": "Sitio Bucao, Purok Central, Brgy. Adams (Poblacion)"
   },
   {
-    "region_code": "060000000",
-    "province_code": "060400000",
-    "city_code": "060423000",
-    "barangay_code": "060423002",
+    "region_code": "0600000000",
+    "province_code": "0603000000",
+    "city_code": "0603002000",
+    "barangay_code": "0603002002",
     "street_address": "Purok Malunggay, Coastal Road, Brgy. Barangay 2 (Poblacion)"
   },
   {
-    "region_code": "100000000",
-    "province_code": "100000000",
-    "city_code": "104305000",
-    "barangay_code": "104305012",
+    "region_code": "1000000000",
+    "province_code": "1001300000",
+    "city_code": "1001304000",
+    "barangay_code": "1001304002",
     "street_address": "Zone 3, Masterson Avenue, Brgy. Carmen"
   },
   {
-    "region_code": "120000000",
-    "province_code": "120000000",
-    "city_code": "126302000",
-    "barangay_code": "126302008",
+    "region_code": "1200000000",
+    "province_code": "1204700000",
+    "city_code": "1204702000",
+    "barangay_code": "1204702007",
     "street_address": "Purok 7, Santiago Boulevard, Brgy. Lagao"
   }
 ]
