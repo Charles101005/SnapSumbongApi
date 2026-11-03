@@ -63,6 +63,17 @@ class TestRegistrationView:
             purpose=REGISTRATION,
         ).exists()
 
+    def test_request_returns_retry_after_seconds(self, api_client, mocker):
+        mocker.patch(
+            'apps.accounts.services.verification_service.VerificationService._generate_otp',
+            return_value='1234',
+        )
+
+        response = api_client.post(REGISTER_URL, _valid_payload(), format='json')
+
+        cooldown = int(settings.VERIFICATION_REQUEST_CONFIG['RESEND_COOLDOWN'].total_seconds())
+        assert response.json()['retry_after_seconds'] == cooldown
+
     def test_duplicate_email_returns_400(self, api_client):
         UserFactory(email='newuser@email.com')
 
@@ -100,13 +111,18 @@ class TestRegistrationView:
         VerificationRequestFactory(
             email='newuser@email.com',
             purpose=REGISTRATION,
-            expires_at=timezone.now() + timedelta(minutes=1),
+            last_sent_at=timezone.now() - timedelta(minutes=2),
+            expires_at=timezone.now() + timedelta(minutes=3),
         )
 
         response = api_client.post(REGISTER_URL, _valid_payload(), format='json')
 
         assert response.status_code == 409
-        assert response.json()['error_code'] == 'VERIFICATION_IN_PROGRESS'
+        data = response.json()
+        assert data['error_code'] == 'VERIFICATION_IN_PROGRESS'
+        # meta tells the client how long until a resend is allowed
+        cooldown = settings.VERIFICATION_REQUEST_CONFIG['RESEND_COOLDOWN'].total_seconds()
+        assert 0 < data['meta']['retry_after_seconds'] <= cooldown
 
 
 @pytest.mark.django_db
@@ -232,7 +248,11 @@ class TestResendRegisterVerificationCodeView:
         response = api_client.post(RESEND_URL, {'email': 'pending@email.com'}, format='json')
 
         assert response.status_code == 200
-        assert response.json()['email'] == 'pending@email.com'
+        data = response.json()
+        assert data['email'] == 'pending@email.com'
+        # a successful resend restarts the full cooldown for the client timer
+        cooldown = int(settings.VERIFICATION_REQUEST_CONFIG['RESEND_COOLDOWN'].total_seconds())
+        assert data['retry_after_seconds'] == cooldown
 
     def test_resend_within_cooldown_returns_429(self, api_client):
         VerificationRequestFactory(
@@ -244,7 +264,10 @@ class TestResendRegisterVerificationCodeView:
         response = api_client.post(RESEND_URL, {'email': 'pending@email.com'}, format='json')
 
         assert response.status_code == 429
-        assert response.json()['error_code'] == 'OTP_RESEND_COOLDOWN_ACTIVE'
+        data = response.json()
+        assert data['error_code'] == 'OTP_RESEND_COOLDOWN_ACTIVE'
+        cooldown = settings.VERIFICATION_REQUEST_CONFIG['RESEND_COOLDOWN'].total_seconds()
+        assert 0 < data['meta']['retry_after_seconds'] <= cooldown
 
     def test_resend_unknown_email_returns_404(self, api_client):
         response = api_client.post(RESEND_URL, {'email': 'unknown@email.com'}, format='json')

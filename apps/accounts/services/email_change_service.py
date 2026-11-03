@@ -33,7 +33,15 @@ class EmailChangeService:
         ).first()
 
         if pending:
-            return DomainResult.error(VerificationInProgressError)
+            now = timezone.now()
+
+            return DomainResult.error(VerificationInProgressError.with_meta(
+                meta={
+                    'retry_after_seconds': VerificationService.retry_after_seconds(
+                        pending.last_sent_at, now
+                    )
+                }
+            ))
 
         payload = {
             "user_id": user.user_id,

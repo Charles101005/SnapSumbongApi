@@ -1,6 +1,7 @@
 from datetime import timedelta
 
 import pytest
+from django.conf import settings
 from django.contrib.auth.hashers import make_password
 from django.utils import timezone
 
@@ -28,6 +29,9 @@ class TestRequestEmailChangeView:
         assert response.status_code == 200
         data = response.json()
         assert data['email'] == 'new@email.com'
+        # lets the modal start its resend countdown immediately
+        cooldown = int(settings.VERIFICATION_REQUEST_CONFIG['RESEND_COOLDOWN'].total_seconds())
+        assert data['retry_after_seconds'] == cooldown
         assert VerificationRequest.objects.filter(
             email='new@email.com', purpose=EMAIL_CHANGE
         ).exists()
@@ -68,7 +72,11 @@ class TestRequestEmailChangeView:
         response = api_client.post(REQUEST_URL, {'new_email': 'other@email.com'}, format='json')
 
         assert response.status_code == 409
-        assert response.json()['error_code'] == 'VERIFICATION_IN_PROGRESS'
+        data = response.json()
+        assert data['error_code'] == 'VERIFICATION_IN_PROGRESS'
+        # meta carries the remaining cooldown so the client can start counting
+        cooldown = settings.VERIFICATION_REQUEST_CONFIG['RESEND_COOLDOWN'].total_seconds()
+        assert 0 < data['meta']['retry_after_seconds'] <= cooldown
 
     def test_invalid_email_returns_400(self, api_client, citizen_role):
         user = UserFactory(role=citizen_role)
@@ -210,7 +218,11 @@ class TestResendEmailChangeView:
         response = api_client.post(RESEND_URL, {'email': 'new@email.com'}, format='json')
 
         assert response.status_code == 200
-        assert response.json()['email'] == 'new@email.com'
+        data = response.json()
+        assert data['email'] == 'new@email.com'
+        # a successful resend restarts the full cooldown for the client timer
+        cooldown = int(settings.VERIFICATION_REQUEST_CONFIG['RESEND_COOLDOWN'].total_seconds())
+        assert data['retry_after_seconds'] == cooldown
 
     def test_resend_within_cooldown_returns_429(self, api_client, citizen_role):
         user = UserFactory(role=citizen_role)
@@ -225,7 +237,10 @@ class TestResendEmailChangeView:
         response = api_client.post(RESEND_URL, {'email': 'new@email.com'}, format='json')
 
         assert response.status_code == 429
-        assert response.json()['error_code'] == 'OTP_RESEND_COOLDOWN_ACTIVE'
+        data = response.json()
+        assert data['error_code'] == 'OTP_RESEND_COOLDOWN_ACTIVE'
+        cooldown = settings.VERIFICATION_REQUEST_CONFIG['RESEND_COOLDOWN'].total_seconds()
+        assert 0 < data['meta']['retry_after_seconds'] <= cooldown
 
     def test_resend_unknown_email_returns_404(self, api_client, citizen_role):
         user = UserFactory(role=citizen_role)

@@ -88,7 +88,8 @@ class TestCreate:
         VerificationRequestFactory(
             email='pending@email.com',
             purpose=REGISTRATION,
-            expires_at=timezone.now() + timedelta(minutes=1),
+            last_sent_at=timezone.now() - timedelta(minutes=2),
+            expires_at=timezone.now() + timedelta(minutes=3),
         )
 
         result = VerificationService.create(
@@ -98,7 +99,10 @@ class TestCreate:
         )
 
         assert result.is_success is False
-        assert result.error is VerificationInProgressError
+        assert result.error.error_code == VerificationInProgressError.error_code
+        # meta carries the remaining cooldown for the client's countdown
+        cooldown = CONFIG['RESEND_COOLDOWN'].total_seconds()
+        assert 0 < result.error.meta['retry_after_seconds'] <= cooldown
 
     def test_resets_expired_verification_and_succeeds(self, mocker):
         mocker.patch.object(VerificationService, '_generate_otp', return_value='5678')

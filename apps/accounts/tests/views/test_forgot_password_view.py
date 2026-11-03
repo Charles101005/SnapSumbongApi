@@ -1,6 +1,7 @@
 from datetime import timedelta
 
 import pytest
+from django.conf import settings
 from django.contrib.auth.hashers import make_password
 from django.utils import timezone
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken
@@ -56,6 +57,22 @@ class TestForgotPasswordView:
         assert data['email'] == user.email
         assert 'Verification code has been sent' in data['detail']
         assert VerificationRequest.objects.filter(email=user.email, purpose=FORGOT_PASSWORD).exists()
+
+    def test_request_returns_retry_after_seconds(self, api_client, citizen_role):
+        user = UserFactory(role=citizen_role)
+
+        response = api_client.post(FORGOT_URL, {'email': user.email}, format='json')
+
+        cooldown = int(settings.VERIFICATION_REQUEST_CONFIG['RESEND_COOLDOWN'].total_seconds())
+        assert response.json()['retry_after_seconds'] == cooldown
+
+    def test_unknown_email_returns_same_retry_after_seconds(self, api_client):
+        # must match the known-email value exactly (no enumeration via timing)
+        cooldown = int(settings.VERIFICATION_REQUEST_CONFIG['RESEND_COOLDOWN'].total_seconds())
+
+        response = api_client.post(FORGOT_URL, {'email': 'unknown@email.com'}, format='json')
+
+        assert response.json()['retry_after_seconds'] == cooldown
 
     def test_unknown_email_returns_same_generic_message(self, api_client):
         response = api_client.post(FORGOT_URL, {'email': 'unknown@email.com'}, format='json')
@@ -138,7 +155,11 @@ class TestResendForgotPasswordVerificationCodeView:
         response = api_client.post(RESEND_URL, {'email': 'reset@email.com'}, format='json')
 
         assert response.status_code == 200
-        assert response.json()['email'] == 'reset@email.com'
+        data = response.json()
+        assert data['email'] == 'reset@email.com'
+        # a successful resend restarts the full cooldown for the client timer
+        cooldown = int(settings.VERIFICATION_REQUEST_CONFIG['RESEND_COOLDOWN'].total_seconds())
+        assert data['retry_after_seconds'] == cooldown
 
     def test_resend_within_cooldown_returns_429(self, api_client):
         VerificationRequestFactory(
@@ -150,7 +171,11 @@ class TestResendForgotPasswordVerificationCodeView:
         response = api_client.post(RESEND_URL, {'email': 'reset@email.com'}, format='json')
 
         assert response.status_code == 429
-        assert response.json()['error_code'] == 'OTP_RESEND_COOLDOWN_ACTIVE'
+        data = response.json()
+        assert data['error_code'] == 'OTP_RESEND_COOLDOWN_ACTIVE'
+        remaining = data['meta']['retry_after_seconds']
+        cooldown = settings.VERIFICATION_REQUEST_CONFIG['RESEND_COOLDOWN'].total_seconds()
+        assert 0 < remaining <= cooldown
 
     def test_resend_unknown_email_returns_404(self, api_client):
         response = api_client.post(RESEND_URL, {'email': 'unknown@email.com'}, format='json')

@@ -1,3 +1,6 @@
+import math
+
+from django.conf import settings
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.request import Request
@@ -33,11 +36,19 @@ class ForgotPasswordView(APIView):
         validated_data = serializer.validated_data
         result = ForgotPasswordService.request_reset_password(validated_data['email'])
 
+        # A fresh send always starts the full cooldown, and the value is the
+        # same whether or not the email exists — the response body must stay
+        # identical for known and unknown addresses (no user enumeration).
+        retry_after = math.ceil(
+            settings.VERIFICATION_REQUEST_CONFIG['RESEND_COOLDOWN'].total_seconds()
+        )
+
         return DomainResultResponse(result).respond(
             success_status_code=status.HTTP_200_OK,
             success_data_override={
                 "detail": f"Verification code has been sent to {validated_data['email']}",
-                "email": validated_data['email']
+                "email": validated_data['email'],
+                "retry_after_seconds": retry_after,
             }
         )
 

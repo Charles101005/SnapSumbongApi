@@ -1,5 +1,6 @@
 import hashlib
 import hmac
+import math
 import secrets
 import string
 from datetime import datetime
@@ -79,6 +80,17 @@ class VerificationService:
         return now + lifetime
 
     @staticmethod
+    def retry_after_seconds(sent_at: datetime, now: datetime) -> int:
+        """Seconds until another resend is allowed after `sent_at`.
+
+        Rounded UP so a client countdown never unlocks before the server's
+        cooldown actually expires (never returns less than 0).
+        """
+        cooldown = VerificationService._config()['RESEND_COOLDOWN']
+
+        return max(0, math.ceil(((sent_at + cooldown) - now).total_seconds()))
+
+    @staticmethod
     def generate_reset_token_and_hash() -> tuple[str, str]:
         reset_token = secrets.token_urlsafe(32)
 
@@ -121,7 +133,13 @@ class VerificationService:
         )
 
         if not created and verification.expires_at > now:
-            return DomainResult.error(VerificationInProgressError)
+            return DomainResult.error(VerificationInProgressError.with_meta(
+                meta={
+                    'retry_after_seconds': VerificationService.retry_after_seconds(
+                        verification.last_sent_at, now
+                    )
+                }
+            ))
 
         otp = VerificationService._generate_otp()
         otp_hash = VerificationService._hash_otp(otp)
@@ -230,11 +248,11 @@ class VerificationService:
         next_allowed_resend = verification.last_sent_at + config['RESEND_COOLDOWN']
 
         if now < next_allowed_resend:
-            time_remaining = int((next_allowed_resend - now).total_seconds())
-
             return DomainResult.error(OTPResendCooldownActiveError.with_meta(
                 meta={
-                    'retry_after_seconds': max(1, time_remaining)
+                    'retry_after_seconds': VerificationService.retry_after_seconds(
+                        verification.last_sent_at, now
+                    )
                 }
             ))
 
