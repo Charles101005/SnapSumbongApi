@@ -11,8 +11,9 @@ from apps.accounts.domain_errors.user_error import (
     UserNotFoundError,
 )
 from apps.accounts.exceptions.role_exception import RoleNotFoundException, SystemCitizenRoleMissingException
-from apps.accounts.models import Users
+from apps.accounts.models import CitizenWarnings, Users
 from apps.accounts.services import AuthService, UserService
+from apps.accounts.services.moderation_service import BAN_WARNING_THRESHOLD
 from apps.accounts.tests.factories import UserFactory, RoleFactory
 from apps.audits.models import AuditLogs
 from apps.audits.services import AuditLogService
@@ -400,6 +401,37 @@ class TestListUsers:
         result = UserService.list_users(is_staff=False, query_filters={'q': 'Nonexistent Name'})
 
         assert list(result.value) == []
+
+    def test_ban_eligible_filters_citizens_at_warning_threshold(self, citizen_role):
+        eligible = UserFactory(role=citizen_role)
+        below_threshold = UserFactory(role=citizen_role)
+
+        for _ in range(BAN_WARNING_THRESHOLD):
+            CitizenWarnings.objects.create(user=eligible, reason='spam')
+        for _ in range(BAN_WARNING_THRESHOLD - 1):
+            CitizenWarnings.objects.create(user=below_threshold, reason='spam')
+
+        result = UserService.list_users(is_staff=False, query_filters={'ban_eligible': True})
+
+        assert list(result.value) == [eligible]
+
+    def test_ban_eligible_false_does_not_filter(self, citizen_role):
+        at_threshold = UserFactory(role=citizen_role)
+        below_threshold = UserFactory(role=citizen_role)
+
+        for _ in range(BAN_WARNING_THRESHOLD):
+            CitizenWarnings.objects.create(user=at_threshold, reason='spam')
+
+        result = UserService.list_users(is_staff=False, query_filters={'ban_eligible': False})
+
+        assert set(result.value) == {at_threshold, below_threshold}
+
+    def test_ban_eligible_is_ignored_for_staff_lists(self, report_officer_role):
+        staff = UserFactory(role=report_officer_role, is_staff=True)
+
+        result = UserService.list_users(is_staff=True, query_filters={'ban_eligible': True})
+
+        assert list(result.value) == [staff]
 
 
 @pytest.mark.django_db

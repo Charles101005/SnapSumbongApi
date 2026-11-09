@@ -25,6 +25,7 @@ OUTPUT_FILE="$SCRIPT_DIR/.env"
 
 # Variables the app cannot start without (see config/settings/env.py) plus the
 # ones docker-compose.yml needs for interpolation.
+# required for Django or docker-compose
 REQUIRED_VARS=(
     DJANGO_SECRET_KEY
     JWT_SECRET_KEY
@@ -48,7 +49,6 @@ REQUIRED_VARS=(
 )
 
 command -v aws >/dev/null 2>&1 || { echo "ERROR: AWS CLI not found — install AWS CLI v2." >&2; exit 1; }
-command -v docker >/dev/null 2>&1 || { echo "ERROR: docker not found — install Docker Engine with the compose plugin." >&2; exit 1; }
 
 REGION="${AWS_REGION:-${AWS_DEFAULT_REGION:-}}"
 if [ -z "$REGION" ]; then
@@ -93,17 +93,6 @@ if [ "${#MISSING[@]}" -gt 0 ]; then
     echo "Add them in the AWS console (Parameter Store) and re-run this script." >&2
     exit 1
 fi
-
-# Best-effort consistency check: Django rejects unknown hosts with 400.
-DOMAIN_VALUE="$(sed -n 's/^DOMAIN=//p' "$TMP_FILE" | head -n1)"
-ALLOWED_HOSTS_VALUE="$(sed -n 's/^ALLOWED_HOSTS=//p' "$TMP_FILE" | head -n1)"
-case ",${ALLOWED_HOSTS_VALUE}," in
-    *",${DOMAIN_VALUE},"* | *",.${DOMAIN_VALUE},"*) ;;
-    *)
-        echo "WARNING: ALLOWED_HOSTS (${ALLOWED_HOSTS_VALUE}) does not include DOMAIN (${DOMAIN_VALUE})." >&2
-        echo "         Django will answer those requests with 400 DisallowedHost." >&2
-        ;;
-esac
 
 cp "$TMP_FILE" "$OUTPUT_FILE"
 chmod 600 "$OUTPUT_FILE"

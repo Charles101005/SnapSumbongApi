@@ -32,12 +32,15 @@ class UserListRequestSerializer(serializers.Serializer):
     q = serializers.CharField(required=False)
     is_active = serializers.BooleanField(required=False, allow_null=True, default=None)
     role_id = serializers.IntegerField(required=False)
+    ban_eligible = serializers.BooleanField(required=False, allow_null=True, default=None)
 
     def validate(self, attrs):
         is_staff: bool = self.context.get("is_staff")
 
         if not is_staff:
             attrs.pop("role_id", None)
+        else:
+            attrs.pop("ban_eligible", None)
 
         return attrs
 

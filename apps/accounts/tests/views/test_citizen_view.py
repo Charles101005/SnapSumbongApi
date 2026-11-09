@@ -1,5 +1,7 @@
 import pytest
 
+from apps.accounts.models import CitizenWarnings
+from apps.accounts.services.moderation_service import BAN_WARNING_THRESHOLD
 from apps.accounts.tests.factories import UserFactory
 
 
@@ -77,6 +79,37 @@ class TestCitizenListView:
         data = response.json()
         assert data['count'] == 1
         assert data['results'][0]['user_number'] == match.user_number
+
+    def test_ban_eligible_filter(self, api_client, system_admin_role, citizen_role):
+        admin = UserFactory(role=system_admin_role, is_staff=True)
+        eligible = UserFactory(role=citizen_role, is_staff=False)
+        UserFactory(role=citizen_role, is_staff=False)
+        for _ in range(BAN_WARNING_THRESHOLD):
+            CitizenWarnings.objects.create(user=eligible, reason='spam')
+        api_client.force_authenticate(user=admin)
+
+        response = api_client.get(CITIZENS_URL, {'ban_eligible': 'true'})
+
+        data = response.json()
+        assert data['count'] == 1
+        assert data['results'][0]['user_number'] == eligible.user_number
+
+    def test_ban_eligible_false_returns_all_citizens(
+            self,
+            api_client,
+            system_admin_role,
+            citizen_role,
+    ):
+        admin = UserFactory(role=system_admin_role, is_staff=True)
+        eligible = UserFactory(role=citizen_role, is_staff=False)
+        UserFactory(role=citizen_role, is_staff=False)
+        for _ in range(BAN_WARNING_THRESHOLD):
+            CitizenWarnings.objects.create(user=eligible, reason='spam')
+        api_client.force_authenticate(user=admin)
+
+        response = api_client.get(CITIZENS_URL, {'ban_eligible': 'false'})
+
+        assert response.json()['count'] == 2
 
     def test_permission_denied_without_read_all(self, api_client, citizen_role):
         user = UserFactory(role=citizen_role)

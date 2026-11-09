@@ -12,6 +12,7 @@ from django.conf import settings
 
 from apps.accounts.models.role_model import Roles
 from apps.accounts.models.user_model import Users
+from apps.accounts.services.moderation_service import BAN_WARNING_THRESHOLD
 from apps.audits.services import AuditLogService
 from apps.accounts.exceptions.role_exception import SystemCitizenRoleMissingException, RoleNotFoundException
 from apps.accounts.domain_errors.user_error import (
@@ -329,6 +330,11 @@ class UserService:
 
         if filters:
             queryset = queryset.filter(**filters)
+
+        # Only citizens carry warnings, so this filter is a no-op for staff
+        # lists (and when the flag is false/unset).
+        if not is_staff and query_filters.get("ban_eligible") is True:
+            queryset = queryset.filter(warning_count__gte=BAN_WARNING_THRESHOLD)
 
         search_query = query_filters.get("q")
         if search_query:
