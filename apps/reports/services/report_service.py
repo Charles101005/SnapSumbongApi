@@ -315,7 +315,6 @@ class ReportService:
         if filters:
             queryset = queryset.filter(**filters)
 
-        # DO 47 s.2024 §4.1: overdue = open (non-phase-4) report past its due date.
         if query_filters.get("overdue"):
             open_statuses = [status.value for status in HazardReports.Status if status.phase < 4]
             queryset = queryset.filter(
@@ -326,12 +325,14 @@ class ReportService:
 
         search_query = query_filters.get("q")
         if search_query:
-            search_query = search_query.strip()
+            search_terms = search_query.strip().split()
 
-            queryset = queryset.filter(
-                Q(report_number__icontains=search_query) |
-                Q(category__hazard_name__icontains=search_query)
-            )
+            for term in search_terms:
+                queryset = queryset.filter(
+                    Q(report_number__icontains=term) |
+                    Q(category__hazard_name__icontains=term) |
+                    Q(address__icontains=term)
+                )
 
         return DomainResult.success(queryset.order_by("-created_at"))
 

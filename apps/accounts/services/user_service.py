@@ -332,9 +332,8 @@ class UserService:
             queryset = queryset.filter(**filters)
 
         # Only citizens carry warnings, so this filter is a no-op for staff
-        # lists (and when the flag is false/unset).
         if not is_staff and query_filters.get("ban_eligible") is True:
-            queryset = queryset.filter(warning_count__gte=BAN_WARNING_THRESHOLD)
+            queryset = queryset.filter(warning_count__gte=BAN_WARNING_THRESHOLD, is_active=True)
 
         search_query = query_filters.get("q")
         if search_query:
