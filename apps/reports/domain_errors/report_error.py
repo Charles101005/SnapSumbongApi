@@ -104,3 +104,21 @@ ReportBlockedByWarningsError = DomainError(
     status_code=status.HTTP_403_FORBIDDEN,
     error_code="REPORT_BLOCKED_BY_WARNINGS",
 )
+
+AiFlagReviewRequiredError = DomainError(
+    detail="This report has an AI screening flag. Answer whether the report is valid before changing its status.",
+    status_code=status.HTTP_400_BAD_REQUEST,
+    error_code="AI_FLAG_REVIEW_REQUIRED",
+)
+
+AiFlagReviewUnavailableError = DomainError(
+    detail="This report has no pending AI screening flag to review.",
+    status_code=status.HTTP_409_CONFLICT,
+    error_code="AI_FLAG_REVIEW_UNAVAILABLE",
+)
+
+AiFlagDecisionStatusMismatchError = DomainError(
+    detail="Confirming the AI flag requires moving the report to Invalid, and clearing it cannot be combined with an Invalid status.",
+    status_code=status.HTTP_400_BAD_REQUEST,
+    error_code="AI_FLAG_DECISION_STATUS_MISMATCH",
+)

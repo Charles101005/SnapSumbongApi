@@ -246,7 +246,7 @@ class TestOverviewSlaOutcomes:
             resolved_at=timezone.now(),
         )
         _backdate(report, created=timezone.now() - timedelta(days=10))
-        settings.DO47_COMPLIANCE_SINCE = timezone.now().date() - timedelta(days=1)
+        settings.DO47_COMPLIANCE_SINCE = timezone.localdate() - timedelta(days=1)
 
         result = AnalyticService.get_report_overview(user=supervisor).value
 

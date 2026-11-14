@@ -1,0 +1,8 @@
+from enum import Enum
+
+
+class ImageFlagReason(Enum):
+    AI_GENERATED = "AI_GENERATED"
+    PRANK_OR_MEME = "PRANK_OR_MEME"
+    CONTEXT_MISMATCH = "CONTEXT_MISMATCH"
+    LOW_CONFIDENCE = "LOW_CONFIDENCE"

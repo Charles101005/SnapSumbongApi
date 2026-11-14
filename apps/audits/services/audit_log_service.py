@@ -3,6 +3,7 @@ from typing import Any
 from django.db.models import Q
 
 from apps.audits.models import AuditLogs
+from apps.reports.constants import AI_FLAG_DECISION_CLEARED
 from apps.reports.models import HazardReports
 from apps.accounts.models import Users, Roles
 from apps.audits.exceptions.audit_log_exception import AuditLogNotFoundException
@@ -268,6 +269,103 @@ class AuditLogService:
         AuditLogService._log(
             actor_id=actor.user_id,
             action=AuditLogs.ActionType.TRANSFER,
+            module=AuditLogs.ModuleType.REPORT,
+            description=description,
+            payload=payload,
+            target_object=report
+        )
+
+    @staticmethod
+    def log_report_ai_flag_detected(
+            *,
+            report: HazardReports,
+            reasons: list[str]|None=None,
+    ) -> None:
+        screening_reasons = list(
+            reasons if reasons is not None else (report.ai_flag_reasons or [])
+        )
+
+        payload = {
+            "ai_flag_detection": {
+                "reasons": screening_reasons,
+                "flagged_images": [
+                    {"image_url": image.image_url}
+                    for image in report.images.all()
+                    if image.is_ai_flagged
+                ],
+            },
+            "initial_status": report.status.label,
+        }
+
+        reason_text = ", ".join(screening_reasons) if screening_reasons else "unspecified"
+        description = (
+            f"REPORT {report.report_number} was flagged by automatic AI screening"
+            f" with the reason(s): {reason_text}"
+        )
+
+        AuditLogService._log(
+            actor_id=None,
+            action=AuditLogs.ActionType.AI_FLAG_DETECTED,
+            module=AuditLogs.ModuleType.REPORT,
+            description=description,
+            payload=payload,
+            target_object=report
+        )
+
+    @staticmethod
+    def log_report_ai_flag_review(
+            *,
+            actor: Users,
+            report: HazardReports,
+            decision: str,
+            old_status: str|None=None,
+            new_status: str|None=None,
+            remarks: str|None=None,
+    ) -> None:
+        if isinstance(remarks, str):
+            remarks = remarks.strip()
+
+        # Snapshot the screening evidence before the caller clears the flags:
+        # the audit entry must still explain what was reviewed even though the
+        # report itself goes back to looking unflagged.
+        payload = {
+            "ai_flag_review": {
+                "decision": decision,
+                "reasons": list(report.ai_flag_reasons or []),
+                "flagged_images": [
+                    {"image_url": image.image_url}
+                    for image in report.images.all()
+                    if image.is_ai_flagged
+                ],
+            },
+            "remarks": remarks,
+        }
+
+        if old_status or new_status:
+            payload["ai_flag_review"]["status_change"] = {
+                "from": old_status,
+                "to": new_status,
+            }
+
+        decision_label = (
+            "cleared as a valid report"
+            if decision == AI_FLAG_DECISION_CLEARED
+            else "confirmed as an invalid report"
+        )
+        description = (
+            f"REPORT {report.report_number} AI screening flag was {decision_label}"
+            f" by {actor.user_number}"
+        )
+
+        if new_status:
+            description += f" on the transition to {new_status.upper()}"
+
+        if remarks:
+            description += f" with the remarks: \"{remarks}\""
+
+        AuditLogService._log(
+            actor_id=actor.user_id,
+            action=AuditLogs.ActionType.AI_FLAG_REVIEW,
             module=AuditLogs.ModuleType.REPORT,
             description=description,
             payload=payload,

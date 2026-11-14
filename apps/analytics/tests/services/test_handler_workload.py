@@ -101,7 +101,7 @@ class TestHandlerWorkloadMetrics:
         HazardReports.objects.filter(pk=report.pk).update(
             created_at=timezone.now() - timedelta(days=10)
         )
-        settings.DO47_COMPLIANCE_SINCE = timezone.now().date() - timedelta(days=1)
+        settings.DO47_COMPLIANCE_SINCE = timezone.localdate() - timedelta(days=1)
 
         workload = AnalyticService.get_handler_workload(user=viewer).value
 

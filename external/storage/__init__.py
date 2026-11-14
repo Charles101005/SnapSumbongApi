@@ -1,2 +1,2 @@
-from .storage_sevice import StorageService
+from .storage_service import StorageService
 from .constants import UploadIntent

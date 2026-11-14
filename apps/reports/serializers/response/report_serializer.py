@@ -18,6 +18,22 @@ def _staff_display_name(user) -> dict[str, str] | None:
     }
 
 
+def _status_display(value) -> str | None:
+    """Resolve either a raw status code or an already-humanized label.
+
+    Older audit entries stored raw codes ("ON_HOLD") while newer ones store the
+    display label ("On-Hold"); the timeline should render the same thing for
+    both.
+    """
+    if not value:
+        return None
+
+    try:
+        return HazardReports.Status(value).label
+    except ValueError:
+        return value
+
+
 class _ImageSignatureSerializer(serializers.Serializer):
     public_id = serializers.CharField()
     signature = serializers.CharField()
@@ -50,6 +66,12 @@ class GetReportListResponseSerializer(serializers.Serializer):
     due_at = serializers.DateTimeField(allow_null=True)
     is_overdue = serializers.BooleanField()
 
+    # Staff-only: preliminary AI screening result. Advisory only; it marks the
+    # report for manual review and never approves or rejects it. A reviewed
+    # flag is cleared, so this is true only while the review is still pending.
+    is_ai_flagged = serializers.BooleanField()
+    ai_flag_reasons = serializers.ListField(child=serializers.CharField())
+
     #staff only
     severity = serializers.CharField(min_length=2, max_length=2)
     address = serializers.CharField(max_length=225)
@@ -72,6 +94,8 @@ class GetReportListResponseSerializer(serializers.Serializer):
             data.pop("severity", None)
             data.pop("address", None)
             data.pop("resolved_at", None)
+            data.pop("is_ai_flagged", None)
+            data.pop("ai_flag_reasons", None)
 
         return data
 
@@ -131,6 +155,13 @@ class GetReportDetailResponseSerializer(serializers.Serializer):
     severity = serializers.CharField()
     created_at = serializers.DateTimeField()
 
+    # Staff-only: preliminary AI screening result. Advisory only; a flagged
+    # report still requires a human decision. Once reviewed, both the report
+    # and per-image flags are cleared and the history moves to the timeline.
+    is_ai_flagged = serializers.BooleanField()
+    ai_flag_reasons = serializers.ListField(child=serializers.CharField())
+    image_ai_flags = serializers.SerializerMethodField()
+
     def get_status(self, value) -> str:
         return HazardReports.Status(value.status).label
 
@@ -164,6 +195,16 @@ class GetReportDetailResponseSerializer(serializers.Serializer):
             if image.photo_type == ReportImages.PhotoType.BEFORE
         ]
 
+    def get_image_ai_flags(self, value) -> list[dict]:
+        return [
+            {
+                "image_url": image.image_url,
+                "is_ai_flagged": image.is_ai_flagged,
+            }
+            for image in value.images.all()
+            if image.photo_type == ReportImages.PhotoType.BEFORE
+        ]
+
     def get_resolution_image_urls(self, value) -> list:
         return [
             image.image_url
@@ -178,15 +219,21 @@ class GetReportDetailResponseSerializer(serializers.Serializer):
         return photos
 
     def get_status_timeline(self, value) -> list:
-        audit_logs = [
-            audit_log
-            for audit_log in value.audit_logs.all()
-            if audit_log.action in (
-                AuditLogs.ActionType.CREATE,
-                AuditLogs.ActionType.STATUS_CHANGE,
-                AuditLogs.ActionType.TRANSFER,
-            )
-        ]
+        # Order by timestamp, then by log id: the AI review is written in the
+        # same second as the status change it accompanies, and the id keeps
+        # that pair in the order the officer worked (review, then new status).
+        audit_logs = sorted(
+            (
+                audit_log
+                for audit_log in value.audit_logs.all()
+                if audit_log.action in (
+                    AuditLogs.ActionType.CREATE,
+                    AuditLogs.ActionType.STATUS_CHANGE,
+                    AuditLogs.ActionType.TRANSFER,
+                )
+            ),
+            key=lambda audit_log: (audit_log.created_at, audit_log.audit_log_id),
+        )
         status_timeline = []
 
         for audit_log in audit_logs:
@@ -194,11 +241,9 @@ class GetReportDetailResponseSerializer(serializers.Serializer):
             status_change = payload.get("status_change") or {}
             # TRANSFER logs carry an assignment_change payload instead of a
             # status change; fall back to the report's current status.
-            status = (
-                payload.get("initial_status")
-                or status_change.get("to")
-                or HazardReports.Status(value.status).label
-            )
+            status = _status_display(
+                payload.get("initial_status") or status_change.get("to")
+            ) or HazardReports.Status(value.status).label
 
             if audit_log.action == AuditLogs.ActionType.CREATE:
                 from_status = None
@@ -244,6 +289,9 @@ class GetReportDetailResponseSerializer(serializers.Serializer):
             data.pop("category_id", None)
             data.pop("severity", None)
             data.pop("created_at", None)
+            data.pop("is_ai_flagged", None)
+            data.pop("ai_flag_reasons", None)
+            data.pop("image_ai_flags", None)
             # Internal staff-only working notes; citizens only ever see the
             # per-transition remarks inside status_timeline.
             data.pop("remarks", None)
@@ -286,26 +334,37 @@ class GetReportHistoryDetailResponseSerializer(serializers.Serializer):
         ]
 
     def get_status_timeline(self, value) -> list[dict[str, Any]]:
-        audit_logs = [
-            audit_log
-            for audit_log in value.audit_logs.all()
-            if audit_log.action in (
-                AuditLogs.ActionType.CREATE,
-                AuditLogs.ActionType.STATUS_CHANGE,
-                AuditLogs.ActionType.TRANSFER,
-            )
-        ]
+        # Order by timestamp, then by log id: the AI review and the status
+        # change it accompanies are written back-to-back, so the id breaks the
+        # tie in insertion order (AI review first).
+        audit_logs = sorted(
+            (
+                audit_log
+                for audit_log in value.audit_logs.all()
+                if audit_log.action in (
+                    AuditLogs.ActionType.CREATE,
+                    AuditLogs.ActionType.STATUS_CHANGE,
+                    AuditLogs.ActionType.TRANSFER,
+                    AuditLogs.ActionType.AI_FLAG_DETECTED,
+                    AuditLogs.ActionType.AI_FLAG_REVIEW,
+                )
+            ),
+            key=lambda audit_log: (audit_log.created_at, audit_log.audit_log_id),
+        )
         status_timeline = []
 
         for audit_log in audit_logs:
             payload = audit_log.payload
-            # TRANSFER logs carry an assignment_change payload instead of a
-            # status change; fall back to the report's current status.
-            status = (
+            # TRANSFER and AI-flag logs may carry something other than a
+            # top-level status_change payload; fall back to the report's
+            # current status when no status can be derived.
+            ai_flag_review = payload.get("ai_flag_review") or {}
+            review_status_change = ai_flag_review.get("status_change") or {}
+            status = _status_display(
                 payload.get("initial_status")
                 or payload.get("status_change", {}).get("to")
-                or HazardReports.Status(value.status).label
-            )
+                or review_status_change.get("to")
+            ) or HazardReports.Status(value.status).label
 
             user = audit_log.user
             if user:
@@ -324,6 +383,7 @@ class GetReportHistoryDetailResponseSerializer(serializers.Serializer):
                 "audit_log_number": audit_log.audit_log_number,
                 "module": f"{AuditLogs.ModuleType(audit_log.module).label} Management",
                 "action": AuditLogs.ActionType(audit_log.action).label,
+                "action_code": audit_log.action,
                 "description": audit_log.description,
                 "status": status,
                 "created_at": audit_log.created_at.isoformat(),

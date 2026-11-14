@@ -3,6 +3,7 @@ from decimal import Decimal
 from rest_framework import serializers
 from django.conf import settings
 
+from apps.reports.constants import AI_FLAG_DECISIONS
 from external.storage import StorageService, UploadIntent
 
 
@@ -131,6 +132,13 @@ class UpdateReportRequestSerializer(serializers.Serializer):
         many=True,
         min_length=1,
         max_length=settings.STORAGE_CONFIG['MAX_SIGNATURE_COUNT'],
+    )
+    # Officer's answer to a pending AI screening flag: CLEARED (report is
+    # valid) or CONFIRMED (report is invalid). Required when a flagged report
+    # moves to On-Hold/Dispatched/Ongoing/Resolved/Closed/Invalid.
+    ai_flag_decision = serializers.ChoiceField(
+        choices=list(AI_FLAG_DECISIONS),
+        required=False,
     )
 
 

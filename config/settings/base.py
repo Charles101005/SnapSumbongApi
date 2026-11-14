@@ -1,3 +1,5 @@
+import os
+
 from .env import *
 from .apps import *
 from .auth import *
@@ -42,7 +44,13 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+# Wall-clock timezone for every date lookup (created_at__date, TruncDate),
+# "today" bucket, report-number stamp and email timestamp. The product serves
+# Philippine LGUs, so it must match the calendar day staff see in the browser
+# (UTC+8). A UTC default made the "Today" filter miss reports created between
+# 00:00 and 08:00 local time, because their UTC timestamp still falls on the
+# previous day. Override per deployment with the TIME_ZONE env var.
+TIME_ZONE = os.getenv('TIME_ZONE', 'Asia/Manila')
 
 USE_I18N = True
 

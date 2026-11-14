@@ -139,7 +139,15 @@ class HazardReports(models.Model):
 
     remarks = models.TextField(blank=True, null=True)
 
-    # DO 47 s.2024 §4.1: due date = date noted + category response time.
+    # Preliminary AI screening signal. This never approves or rejects a report
+    # on its own; staff still make the final decision. True when at least one
+    # submitted image was flagged, and ai_flag_reasons lists the reason codes.
+    # Once an officer reviews the flag, both this and the per-image flags are
+    # cleared; the detection/review history lives in the audit trail.
+    is_ai_flagged = models.BooleanField(default=False, db_index=True)
+    ai_flag_reasons = models.JSONField(default=list, blank=True)
+
+    # due date = date noted + category response time.
     # Null only for reports created before SLA tracking existed.
     due_at = models.DateTimeField(null=True, blank=True, db_index=True)
 

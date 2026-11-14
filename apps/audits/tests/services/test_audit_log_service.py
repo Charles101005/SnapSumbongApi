@@ -522,7 +522,7 @@ class TestListAuthorizedAuditLogs:
     def test_date_filters_include_and_exclude_logs(self, system_admin_role):
         _seed_modules()
         user = UserFactory(role=system_admin_role)
-        today = timezone.now().date()
+        today = timezone.localdate()
 
         included = AuditLogService.list_authorized_audit_logs(
             user=user,

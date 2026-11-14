@@ -72,7 +72,7 @@ def reissue_number(instance, field_name: str, prefix: str, when,
     import string as _string
 
     choices = _string.digits + _string.ascii_uppercase
-    date_str = when.strftime("%Y%m%d")
+    date_str = timezone.localtime(when).strftime("%Y%m%d")
     model = type(instance)
     while True:
         suffix = "".join(secrets.choice(choices) for _ in range(suffix_length))

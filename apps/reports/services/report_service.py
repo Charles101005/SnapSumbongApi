@@ -12,12 +12,18 @@ from apps.accounts.models import Users, CitizenWarnings
 from shared.results import DomainResult
 from external.storage import StorageService, UploadIntent
 from apps.reports.models import HazardReports, HazardCategories, ReportImages
+from apps.reports.constants import (
+    AI_FLAG_DECISION_CLEARED,
+    AI_FLAG_DECISION_CONFIRMED,
+    AI_FLAG_DECISIONS,
+)
 from apps.reports.exceptions.report_exception import (
     InvalidImageCountException,
     InvalidHazardCategoryException,
     ReportDoesNotExistException,
     InvalidReportStatusException,
     InvalidReportSeverityException,
+    InvalidAiFlagDecisionException,
 )
 from apps.reports.domain_errors.report_error import (
     DuplicateStatusTransitionError,
@@ -37,6 +43,9 @@ from apps.reports.domain_errors.report_error import (
     CategoryChangeNotPermittedError,
     MandatoryCategoryRemarksError,
     ReportBlockedByWarningsError,
+    AiFlagReviewRequiredError,
+    AiFlagReviewUnavailableError,
+    AiFlagDecisionStatusMismatchError,
 )
 from apps.accounts.services import UserService
 from apps.accounts.services.moderation_service import BAN_WARNING_THRESHOLD
@@ -44,6 +53,20 @@ from apps.audits.services import AuditLogService
 from shared.authorization.service import AuthorizationService
 from shared.authorization import AllPermissions
 from external.email import EmailService
+from external.ai import AIService
+
+
+# Transitions that leave triage (Under Review) and therefore require the
+# officer to answer the advisory AI screening question. Returning to
+# UNDER_REVIEW from On-Hold does not force a decision; the flag stays pending.
+AI_FLAG_REVIEW_REQUIRED_TARGETS = {
+    HazardReports.Status.ON_HOLD.value,
+    HazardReports.Status.DISPATCHED.value,
+    HazardReports.Status.ONGOING.value,
+    HazardReports.Status.RESOLVED.value,
+    HazardReports.Status.CLOSED.value,
+    HazardReports.Status.INVALID.value,
+}
 
 
 class ReportService:
@@ -205,7 +228,51 @@ class ReportService:
         return DomainResult.success(upload_credentials)
 
     @staticmethod
-    @transaction.atomic
+    def _screen_report_images(
+            *,
+            image_urls: list[str],
+            category_name: str,
+            description: str,
+    ) -> dict[str, Any]:
+        """Run the preliminary AI image screening.
+
+        The result is advisory only: it flags images for manual review and
+        never approves or rejects a report. When screening is disabled or the
+        AI call fails, the report is submitted unflagged (fail open).
+        """
+        no_flags = {
+            "images": {},
+            "is_flagged": False,
+            "ai_flag_reasons": [],
+        }
+
+        if not settings.AI_IMAGE_SCREENING_ENABLED or not image_urls:
+            return no_flags
+
+        try:
+            result = AIService.validate_report_images(
+                image_urls=image_urls,
+                category=category_name,
+                description=description,
+            )
+        except Exception:
+            return no_flags
+
+        if not result.get("success"):
+            return no_flags
+
+        images = {
+            image["image_url"]: image
+            for image in result.get("images", [])
+        }
+
+        return {
+            "images": images,
+            "is_flagged": bool(result.get("is_flagged")),
+            "ai_flag_reasons": list(result.get("flagged_reasons") or []),
+        }
+
+    @staticmethod
     def create_assign_hazard_report(
             *,
             reported_by_id: int,
@@ -225,6 +292,42 @@ class ReportService:
         if not category:
             raise InvalidHazardCategoryException()
 
+        # Preliminary AI screening runs before the transaction starts so a slow
+        # model call never holds database locks. It is advisory only, so a
+        # failure here never blocks submission; it just flags images for
+        # manual review.
+        screening = ReportService._screen_report_images(
+            image_urls=image_urls,
+            category_name=category.hazard_name,
+            description=description,
+        )
+
+        return ReportService._persist_hazard_report(
+            reported_by_id=reported_by_id,
+            category=category,
+            latitude=latitude,
+            longitude=longitude,
+            address=address,
+            description=description,
+            is_anonymous=is_anonymous,
+            image_urls=image_urls,
+            screening=screening,
+        )
+
+    @staticmethod
+    @transaction.atomic
+    def _persist_hazard_report(
+            *,
+            reported_by_id: int,
+            category: HazardCategories,
+            latitude: Decimal,
+            longitude: Decimal,
+            address: str,
+            description: str,
+            is_anonymous: bool,
+            image_urls: list[str],
+            screening: dict[str, Any],
+    ) -> DomainResult[HazardReports]:
         ReportService._process_unassigned_reports()
 
         assigned_staff = ReportService._get_next_report_assigned_to()
@@ -246,12 +349,17 @@ class ReportService:
             status=initial_status,
             is_anonymous=is_anonymous,
             due_at=due_at,
+            is_ai_flagged=screening["is_flagged"],
+            ai_flag_reasons=screening["ai_flag_reasons"],
         )
 
         for image_url in image_urls:
+            image_screening = screening["images"].get(image_url) or {}
+
             report.images.create(
                 image_url=image_url,
                 photo_type=ReportImages.PhotoType.BEFORE,
+                is_ai_flagged=bool(image_screening.get("is_flagged", False)),
             )
 
         AuditLogService.log_create(
@@ -264,6 +372,12 @@ class ReportService:
                 "assigned_to": assigned_staff.email if assigned_staff else None,
             },
         )
+
+        # The screening result is advisory, but its detection is still part of
+        # the report's story: log it so the staff timeline can show when and
+        # why the report was flagged, even after the flags are reviewed away.
+        if report.is_ai_flagged:
+            AuditLogService.log_report_ai_flag_detected(report=report)
 
         # Report receipts are preference-based: users who opted out of
         # notifications (is_notified=False) don't get them.
@@ -376,7 +490,8 @@ class ReportService:
             new_category_id: int|None=None,
             remarks: str|None=None,
             resolution_images: list[dict]|None=None,
-            validated_by_name: str|None=None
+            validated_by_name: str|None=None,
+            ai_flag_decision: str|None=None
     ) -> DomainResult[None]:
         authorized_reports = ReportService._authorized_reports(user=user)
 
@@ -389,10 +504,26 @@ class ReportService:
         new_status_str = new_status_str.strip().upper() if new_status_str else None
         new_severity_str = new_severity_str.strip().upper() if new_severity_str else None
         remarks = remarks.strip() if remarks else None
+        ai_flag_decision = ai_flag_decision.strip().upper() if ai_flag_decision else None
+
+        if ai_flag_decision and ai_flag_decision not in AI_FLAG_DECISIONS:
+            raise InvalidAiFlagDecisionException()
+
+        # A flag exists only until an officer reviews it: clearing the report
+        # (and image) flags on either decision is what makes it "not pending".
+        ai_flag_pending = report.is_ai_flagged
+
+        if ai_flag_decision and not ai_flag_pending:
+            return DomainResult.error(AiFlagReviewUnavailableError)
 
         # A category correction is a remark-driven fix that needs no status
         # change, so remarks are allowed without one when category_id rides along.
-        if (remarks and not new_status_str and not new_category_id) or (resolution_images and not new_status_str):
+        if (
+            remarks
+            and not new_status_str
+            and not new_category_id
+            and not ai_flag_decision
+        ) or (resolution_images and not new_status_str):
             return DomainResult.error(InvalidReportUpdateError)
 
         # Validated against the status as the request found it (before any
@@ -436,12 +567,31 @@ class ReportService:
                     report=report,
                 )
 
+        status_changed = False
+        old_status_label = None
+
         if new_status_str:
             if new_status_str not in HazardReports.Status:
                 raise InvalidReportStatusException()
 
             if new_status_str == report.status:
                 return DomainResult.error(DuplicateStatusTransitionError)
+
+            # The AI screening flag is advisory: when a flagged report leaves
+            # triage, the officer must say whether the report is valid. The
+            # original flag/reasons are retained and the decision is audited.
+            if ai_flag_decision == AI_FLAG_DECISION_CONFIRMED and new_status_str != HazardReports.Status.INVALID.value:
+                return DomainResult.error(AiFlagDecisionStatusMismatchError)
+
+            if ai_flag_decision == AI_FLAG_DECISION_CLEARED and new_status_str == HazardReports.Status.INVALID.value:
+                return DomainResult.error(AiFlagDecisionStatusMismatchError)
+
+            if (
+                ai_flag_pending
+                and not ai_flag_decision
+                and new_status_str in AI_FLAG_REVIEW_REQUIRED_TARGETS
+            ):
+                return DomainResult.error(AiFlagReviewRequiredError)
 
             if new_status_str in HazardReports.Status.get_mandatory_remarks_statuses() and not remarks:
                 return DomainResult.error(MandatoryRemarksStatusError)
@@ -463,7 +613,9 @@ class ReportService:
                 return DomainResult.error(MandatorySeverityStatusError)
 
             old_status = HazardReports.Status(report.status)
+            old_status_label = old_status.label
             report.status = HazardReports.Status(new_status_str)
+            status_changed = True
             updated_fields.append("status")
 
             report.remarks = remarks
@@ -511,19 +663,40 @@ class ReportService:
                 if resolution_images:
                     return DomainResult.error(StatusResolutionImageConflictError)
 
-            AuditLogService.log_report_status_change(
-                actor=user,
-                old_status=old_status.label,
-                new_status=report.status.label,
-                remarks=remarks,
-                report=report
-            )
-
             ReportService._enqueue_status_update_email(
                 report=report,
                 old_status_label=old_status.label,
                 new_status_label=report.status.label,
                 remarks=remarks or "",
+            )
+
+        if ai_flag_decision:
+            # Log the review while the evidence is still flagged, then clear
+            # both the report and per-image flags. The report goes back to
+            # looking like a normal submission; the timeline keeps the history.
+            # This is written before the status-change entry so the timeline
+            # reads "flagged -> reviewed -> new status" in the order the
+            # officer actually worked.
+            AuditLogService.log_report_ai_flag_review(
+                actor=user,
+                report=report,
+                decision=ai_flag_decision,
+                old_status=old_status_label if status_changed else None,
+                new_status=report.status.label if status_changed else None,
+                remarks=remarks,
+            )
+
+            report.is_ai_flagged = False
+            updated_fields.append("is_ai_flagged")
+            report.images.filter(is_ai_flagged=True).update(is_ai_flagged=False)
+
+        if status_changed:
+            AuditLogService.log_report_status_change(
+                actor=user,
+                old_status=old_status_label,
+                new_status=report.status.label,
+                remarks=remarks,
+                report=report
             )
 
         if new_severity_str:

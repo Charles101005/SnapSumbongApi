@@ -11,6 +11,8 @@ def pytest_configure():
     settings.PASSWORD_HASHERS = [
         'django.contrib.auth.hashers.MD5PasswordHasher',
     ]
+    # Never call the real Google AI service from the test suite.
+    settings.AI_IMAGE_SCREENING_ENABLED = False
 
 @pytest.fixture
 def api_client():

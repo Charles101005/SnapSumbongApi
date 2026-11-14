@@ -1,4 +1,5 @@
 import pytest
+from django.utils import timezone
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.accounts.tests.factories import RoleFactory, UserFactory, TEST_PASSWORD
@@ -142,7 +143,7 @@ class TestProfileView:
 
         assert response.status_code == 200
         data = response.json()
-        assert data['created_at'][:10] == user.created_at.date().isoformat()
+        assert data['created_at'][:10] == timezone.localtime(user.created_at).date().isoformat()
 
     def test_patch_address_fields_are_optional(self, api_client, citizen_role):
         user = UserFactory(

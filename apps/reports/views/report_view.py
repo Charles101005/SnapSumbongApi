@@ -159,7 +159,8 @@ class ReportDetailView(APIView):
             new_category_id=validated_data.get("category_id"),
             remarks=validated_data.get("remarks"),
             resolution_images=validated_data.get("resolution_images"),
-            validated_by_name=validated_data.get("validated_by_name")
+            validated_by_name=validated_data.get("validated_by_name"),
+            ai_flag_decision=validated_data.get("ai_flag_decision"),
         )
 
         return DomainResultResponse(result).respond(

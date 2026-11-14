@@ -4,9 +4,6 @@ from .hazard_report_model import HazardReports
 
 
 class ReportImages(models.Model):
-    # DO 47 s.2024 Appendix A-8: Documentation Photolog shows the rectification
-    # activity as Before (hazard as reported), During (works in progress), and
-    # After (completed rectification) photographs.
     class PhotoType(models.TextChoices):
         BEFORE = 'BEFORE', 'Before'
         DURING = 'DURING', 'During'
@@ -24,3 +21,7 @@ class ReportImages(models.Model):
     )
 
     uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    # Per-image result of the preliminary AI screening. A flagged image always
+    # means a human must review it; it is never an automatic rejection.
+    is_ai_flagged = models.BooleanField(default=False, db_index=True)

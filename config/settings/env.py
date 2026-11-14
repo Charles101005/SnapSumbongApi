@@ -33,6 +33,12 @@ DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL")
 EMAIL_FROM_AUTH = os.getenv("EMAIL_FROM_AUTH")
 EMAIL_FROM_GENERAL = os.getenv("EMAIL_FROM_GENERAL")
 
+GOOGLE_AI_API_KEY = os.getenv("GOOGLE_AI_API_KEY")
+
+# Preliminary AI image screening on report submission. Flags reports for
+# manual review; it never approves or rejects a report on its own.
+AI_IMAGE_SCREENING_ENABLED: bool = os.getenv("AI_IMAGE_SCREENING_ENABLED", "True") == "True"
+
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG: bool = os.getenv("DEBUG", "False") == "True"
 
