@@ -48,7 +48,7 @@ class TestHazardReportMetricsView:
             assigned_to=handler, status=HazardReports.Status.RESOLVED
         )
         HazardReportFactory(
-            assigned_to=outsider, status=HazardReports.Status.DISPATCHED
+            assigned_to=outsider, status=HazardReports.Status.IN_PROGRESS
         )
 
         api_client.force_authenticate(user=handler)

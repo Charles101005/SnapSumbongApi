@@ -11,24 +11,42 @@ class HazardReportManager(models.Manager):
 
 
 # UI transition matrix. Closed is a destination the process arrives at, not
-# a shortcut: verification (Under Review) must come first, early-phase
-# reports close only via On-Hold (referred out), and completed works close
-# only via Resolved. Assigned leads directly into Under Review — no other
-# next stage — and Invalid is only a triage verdict from Under Review
-# onward (fake/troll reports are flagged after verification has begun).
+# a shortcut: a report must be handled (In Progress) before it can resolve or
+# be referred out, early-phase reports close only via On-Hold (referred out),
+# and completed works close only via Resolved. Assigned leads directly into
+# In Progress — no other next stage — and Invalid is only a triage verdict
+# once handling has begun (fake/troll reports are flagged after assessment).
+#
+# Validation, dispatch, and field work are ACTIVITIES inside In Progress, not
+# separate ticket statuses. They are recorded through the activity log and
+# shown as sub-events on the report timeline.
+#
 # This map feeds HazardReports.Status.get_next_expected_statuses, which
 # the staff modal uses to restrict its status dropdown; ReportService also
 # enforces the Assigned rule server-side (every other row stays UI-only).
 STATUS_ALLOWED_TRANSITIONS = {
-    'NEW': ('UNDER_REVIEW', 'INVALID'),
-    'ASSIGNED': ('UNDER_REVIEW',),
-    'UNDER_REVIEW': ('ON_HOLD', 'DISPATCHED', 'INVALID'),
-    'ON_HOLD': ('UNDER_REVIEW', 'DISPATCHED', 'CLOSED', 'INVALID'),
-    'DISPATCHED': ('ONGOING', 'RESOLVED', 'ON_HOLD', 'INVALID'),
-    'ONGOING': ('RESOLVED', 'ON_HOLD'),
+    'NEW': ('ASSIGNED', 'INVALID'),
+    'ASSIGNED': ('IN_PROGRESS',),
+    'IN_PROGRESS': ('ON_HOLD', 'RESOLVED', 'INVALID'),
+    'ON_HOLD': ('IN_PROGRESS', 'CLOSED', 'INVALID'),
     'RESOLVED': ('CLOSED',),
     'CLOSED': (),
     'INVALID': (),
+}
+
+# Historical audit rows still carry the labels/codes of the retired statuses.
+# They are rendered as activities instead of being rewritten, so the audit
+# trail keeps its original wording while the UI speaks the 7-status language.
+LEGACY_STATUS_TO_CODE = {
+    'UNDER_REVIEW': 'IN_PROGRESS',
+    'DISPATCHED': 'IN_PROGRESS',
+    'ONGOING': 'IN_PROGRESS',
+}
+
+LEGACY_STATUS_ACTIVITY_LABELS = {
+    'UNDER_REVIEW': 'Report validated',
+    'DISPATCHED': 'Forwarded to field personnel',
+    'ONGOING': 'Corrective work started',
 }
 
 
@@ -42,22 +60,19 @@ class HazardReports(models.Model):
 
 
     class Status(models.TextChoices):
-        # Phase 1: Intake and Assignment(more for the system)
-        NEW = 'NEW', 'New' #'Newly Submitted'
-        ASSIGNED = 'ASSIGNED', 'Assigned' #'Assigned to Officer'
+        # Phase 1: Intake and Assignment (system-managed)
+        NEW = 'NEW', 'New'
+        ASSIGNED = 'ASSIGNED', 'Assigned'
 
-        # Phase 2: Report Verification
-        UNDER_REVIEW = 'UNDER_REVIEW', 'Under Review' #'Being worked on/Report Verification'
-        ON_HOLD = 'ON_HOLD', 'On-Hold' #'Out of Jurisdiction/Need External Department' #
-
-        # Phase 3: Action
-        DISPATCHED = 'DISPATCHED', 'Dispatched' #'Dispatched Engineers'
-        ONGOING = 'ONGOING', 'Ongoing' #'Crew on Site — Works in Progress'
+        # Phase 2: Handling — validation, assessment, coordination, and
+        # corrective actions all happen while the report is In Progress.
+        IN_PROGRESS = 'IN_PROGRESS', 'In Progress'
+        ON_HOLD = 'ON_HOLD', 'On-Hold'
 
         # Phase 4: Resolution and Closure
-        RESOLVED = 'RESOLVED', 'Resolved' #'Issue is solved but needs user verification'
-        CLOSED = 'CLOSED', 'Closed' #'Closed by reporter confirmation, or force-closed by staff (e.g. out of DO 47 jurisdiction)' #
-        INVALID = 'INVALID', 'Invalid' #'Closed as false/unverifiable — moderation action on suspected fake or troll reports'
+        RESOLVED = 'RESOLVED', 'Resolved'
+        CLOSED = 'CLOSED', 'Closed'
+        INVALID = 'INVALID', 'Invalid'
 
         @property
         def phase(self) -> int:
@@ -65,11 +80,8 @@ class HazardReports(models.Model):
                 self.NEW: 1,
                 self.ASSIGNED: 1,
 
-                self.UNDER_REVIEW: 2,
+                self.IN_PROGRESS: 2,
                 self.ON_HOLD: 2,
-
-                self.DISPATCHED: 3,
-                self.ONGOING: 3,
 
                 self.RESOLVED: 4,
                 self.CLOSED: 4,
@@ -77,10 +89,58 @@ class HazardReports(models.Model):
             }
             return phase_map[self]
 
+        @property
+        def is_terminal(self) -> bool:
+            # Resolved still needs citizen confirmation (or a staff force-close),
+            # so only Closed and Invalid are truly terminal.
+            return self in (self.CLOSED, self.INVALID)
+
+        @property
+        def description(self) -> str:
+            description_map = {
+                self.NEW: (
+                    "The report has been successfully submitted by the citizen "
+                    "and is awaiting initial assessment and assignment by the LGU."
+                ),
+                self.ASSIGNED: (
+                    "The report has been assigned to a designated LGU officer who "
+                    "is responsible for handling and monitoring the reported hazard."
+                ),
+                self.IN_PROGRESS: (
+                    "The LGU officer is actively handling the report, including "
+                    "validating the submitted information, assessing the reported "
+                    "hazard, coordinating with the appropriate department or field "
+                    "personnel, and carrying out the necessary corrective actions."
+                ),
+                self.ON_HOLD: (
+                    "The report is temporarily paused pending additional "
+                    "information, further verification, resource availability, or "
+                    "referral to the appropriate agency when the reported issue "
+                    "falls outside the LGU's jurisdiction."
+                ),
+                self.RESOLVED: (
+                    "The reported hazard has been addressed and the necessary "
+                    "corrective actions have been completed. The report is awaiting "
+                    "final confirmation and closure."
+                ),
+                self.CLOSED: (
+                    "The report has been verified as completed and officially "
+                    "closed. No further action is required."
+                ),
+                self.INVALID: (
+                    "The report has been determined to be false, misleading, spam, "
+                    "or otherwise invalid after assessment. No further action will "
+                    "be taken, and the associated account may be flagged for "
+                    "repeated abuse."
+                ),
+            }
+            return description_map[self]
+
         @classmethod
         def get_mandatory_remarks_statuses(cls) -> list:
             return [
                 cls.ON_HOLD,
+                cls.RESOLVED,
                 cls.CLOSED,
                 cls.INVALID,
             ]

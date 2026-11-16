@@ -18,7 +18,7 @@ class TestCategoryChange:
         defaults = {
             "assigned_to": officer,
             "category": category,
-            "status": HazardReports.Status.UNDER_REVIEW,
+            "status": HazardReports.Status.IN_PROGRESS,
             "severity": "P2",
         }
         defaults.update(report_kwargs)
@@ -53,6 +53,7 @@ class TestCategoryChange:
         # from 10 days ago the report is retroactively overdue.
         assert report.due_at == report.created_at + timedelta(days=3)
         assert report.is_overdue is True
+        assert report.remarks == "Citizen picked the wrong category."
 
         log = AuditLogs.objects.get(action=AuditLogs.ActionType.CATEGORY_CHANGE)
         assert log.payload["category_change"]["from"] == original_category.hazard_name
@@ -88,10 +89,10 @@ class TestCategoryChange:
             HazardReports.Status.NEW,
             HazardReports.Status.ASSIGNED,
             HazardReports.Status.ON_HOLD,
-            HazardReports.Status.DISPATCHED,
+            HazardReports.Status.RESOLVED,
         ],
     )
-    def test_change_is_rejected_outside_under_review(
+    def test_change_is_rejected_outside_in_progress(
         self, api_client, report_officer_role, status
     ):
         officer, report = self._officer_and_report(report_officer_role, status=status)
@@ -178,8 +179,8 @@ class TestCategoryChange:
             f"/reports/{report.report_number}/",
             {
                 "category_id": corrected.hazard_id,
-                "status": "DISPATCHED",
-                "remarks": "Reclassified to potholes; crew dispatched.",
+                "status": "ON_HOLD",
+                "remarks": "Reclassified to potholes; coordination paused.",
             },
             format="json",
         )
@@ -187,7 +188,7 @@ class TestCategoryChange:
         assert response.status_code == 200
         report.refresh_from_db()
         assert report.category_id == corrected.hazard_id
-        assert report.status == HazardReports.Status.DISPATCHED
+        assert report.status == HazardReports.Status.ON_HOLD
         assert AuditLogs.objects.filter(
             action=AuditLogs.ActionType.CATEGORY_CHANGE
         ).exists()
@@ -218,7 +219,7 @@ class TestCategoryIdInResponses:
         report = HazardReportFactory(
             reported_by=UserFactory(),
             assigned_to=officer,
-            status=HazardReports.Status.UNDER_REVIEW,
+            status=HazardReports.Status.IN_PROGRESS,
         )
 
         api_client.force_authenticate(user=officer)
@@ -231,7 +232,7 @@ class TestCategoryIdInResponses:
     def test_citizen_detail_hides_category_id(self, api_client, citizen_role):
         citizen = UserFactory(role=citizen_role)
         report = HazardReportFactory(
-            reported_by=citizen, status=HazardReports.Status.UNDER_REVIEW
+            reported_by=citizen, status=HazardReports.Status.IN_PROGRESS
         )
 
         api_client.force_authenticate(user=citizen)

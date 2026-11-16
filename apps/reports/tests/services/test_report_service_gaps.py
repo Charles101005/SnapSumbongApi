@@ -102,7 +102,7 @@ class TestStatusUpdateEmailDispatch:
         report = HazardReportFactory(
             assigned_to=officer,
             reported_by=reporter,
-            status=HazardReports.Status.UNDER_REVIEW,
+            status=HazardReports.Status.IN_PROGRESS,
             severity="P2",
         )
 
@@ -110,18 +110,18 @@ class TestStatusUpdateEmailDispatch:
             result = ReportService.update_authorized_assigned_report(
                 user=officer,
                 report_number=report.report_number,
-                new_status_str="DISPATCHED",
-                remarks="Crew deployed.",
+                new_status_str="ON_HOLD",
+                remarks="Awaiting external agency confirmation.",
             )
 
         assert result.is_success
         report.refresh_from_db()
-        assert report.status == HazardReports.Status.DISPATCHED
+        assert report.status == HazardReports.Status.ON_HOLD
 
         email_mock.assert_called_once()
         kwargs = email_mock.call_args.kwargs
         assert kwargs["to_email"] == reporter.email
         assert kwargs["report_number"] == report.report_number
-        assert kwargs["old_status"] == HazardReports.Status.UNDER_REVIEW.label
-        assert kwargs["new_status"] == HazardReports.Status.DISPATCHED.label
+        assert kwargs["old_status"] == HazardReports.Status.IN_PROGRESS.label
+        assert kwargs["new_status"] == HazardReports.Status.ON_HOLD.label
         assert " at " in kwargs["submitted_at"]

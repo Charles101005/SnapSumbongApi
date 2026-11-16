@@ -14,6 +14,7 @@ class AuditLogs(models.Model):
         SEVERITY_CHANGE = "SEVERITY_CHANGE", "Severity changed"
         CATEGORY_CHANGE = "CATEGORY_CHANGE", "Category changed"
         TRANSFER = "TRANSFER", "Report transferred"
+        ACTIVITY_NOTE = "ACTIVITY_NOTE", "Report activity recorded"
         AI_FLAG_DETECTED = "AI_FLAG_DETECTED", "AI flag detected"
         AI_FLAG_REVIEW = "AI_FLAG_REVIEW", "AI flag reviewed"
         WARNING = "WARNING", "Warning issued"

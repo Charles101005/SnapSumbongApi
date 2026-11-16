@@ -11,11 +11,18 @@ from django.conf import settings
 from apps.accounts.models import Users, CitizenWarnings
 from shared.results import DomainResult
 from external.storage import StorageService, UploadIntent
-from apps.reports.models import HazardReports, HazardCategories, ReportImages
+from apps.reports.models import (
+    HazardReports,
+    HazardCategories,
+    ReportImages,
+    STATUS_ALLOWED_TRANSITIONS,
+)
 from apps.reports.constants import (
     AI_FLAG_DECISION_CLEARED,
     AI_FLAG_DECISION_CONFIRMED,
     AI_FLAG_DECISIONS,
+    REPORT_ACTIVITY_SELECTABLE_VALUES,
+    ReportActivity,
 )
 from apps.reports.exceptions.report_exception import (
     InvalidImageCountException,
@@ -24,6 +31,7 @@ from apps.reports.exceptions.report_exception import (
     InvalidReportStatusException,
     InvalidReportSeverityException,
     InvalidAiFlagDecisionException,
+    InvalidReportActivityException,
 )
 from apps.reports.domain_errors.report_error import (
     DuplicateStatusTransitionError,
@@ -31,6 +39,11 @@ from apps.reports.domain_errors.report_error import (
     StatusResolutionImageConflictError,
     MandatoryRemarksStatusError,
     AssignedStatusTransitionError,
+    StatusTransitionNotAllowedError,
+    ActivityRemarksRequiredError,
+    ActivityRemarksWithoutActivityError,
+    ReferralRequiresOnHoldError,
+    ReportActivityNotPermittedError,
     MandatorySeverityStatusError,
     ResolutionImageRequiredError,
     MissingDuringPhotoError,
@@ -56,13 +69,11 @@ from external.email import EmailService
 from external.ai import AIService
 
 
-# Transitions that leave triage (Under Review) and therefore require the
-# officer to answer the advisory AI screening question. Returning to
-# UNDER_REVIEW from On-Hold does not force a decision; the flag stays pending.
+# Transitions that leave triage (the intake/assignment stage) and therefore
+# require the officer to answer the advisory AI screening question. Returning
+# from On-Hold to In Progress does not force a decision; the flag stays pending.
 AI_FLAG_REVIEW_REQUIRED_TARGETS = {
     HazardReports.Status.ON_HOLD.value,
-    HazardReports.Status.DISPATCHED.value,
-    HazardReports.Status.ONGOING.value,
     HazardReports.Status.RESOLVED.value,
     HazardReports.Status.CLOSED.value,
     HazardReports.Status.INVALID.value,
@@ -179,12 +190,14 @@ class ReportService:
         return queryset
 
     @staticmethod
-    def get_status_list() -> DomainResult[list[dict[str, str]]]:
+    def get_status_list() -> DomainResult[list[dict[str, Any]]]:
         return DomainResult.success(
             [
                 {
                     "label": status.label,
                     "value": status.value,
+                    "description": status.description,
+                    "is_terminal": status.is_terminal,
                 }
                 for status in HazardReports.Status
             ]
@@ -491,7 +504,9 @@ class ReportService:
             remarks: str|None=None,
             resolution_images: list[dict]|None=None,
             validated_by_name: str|None=None,
-            ai_flag_decision: str|None=None
+            ai_flag_decision: str|None=None,
+            activity: str|None=None,
+            activity_remarks: str|None=None,
     ) -> DomainResult[None]:
         authorized_reports = ReportService._authorized_reports(user=user)
 
@@ -505,9 +520,17 @@ class ReportService:
         new_severity_str = new_severity_str.strip().upper() if new_severity_str else None
         remarks = remarks.strip() if remarks else None
         ai_flag_decision = ai_flag_decision.strip().upper() if ai_flag_decision else None
+        activity = activity.strip().upper() if activity else None
+        activity_remarks = activity_remarks.strip() if activity_remarks else None
 
         if ai_flag_decision and ai_flag_decision not in AI_FLAG_DECISIONS:
             raise InvalidAiFlagDecisionException()
+
+        if activity and activity not in REPORT_ACTIVITY_SELECTABLE_VALUES:
+            raise InvalidReportActivityException()
+
+        if activity_remarks and not activity:
+            return DomainResult.error(ActivityRemarksWithoutActivityError)
 
         # A flag exists only until an officer reviews it: clearing the report
         # (and image) flags on either decision is what makes it "not pending".
@@ -516,22 +539,47 @@ class ReportService:
         if ai_flag_decision and not ai_flag_pending:
             return DomainResult.error(AiFlagReviewUnavailableError)
 
-        # A category correction is a remark-driven fix that needs no status
-        # change, so remarks are allowed without one when category_id rides along.
+        # Remarks are allowed without a status change only when they accompany
+        # a category correction, an AI review decision, or an explicit activity
+        # note. A bare remark would otherwise be lost from the status history.
+        if activity:
+            activity_statuses = {
+                HazardReports.Status.IN_PROGRESS.value,
+                HazardReports.Status.ON_HOLD.value,
+            }
+            # Activities belong to the live handling phase. Validate the status
+            # the report will have after this same save applies, so an activity
+            # can never ride along with a Resolved/Closed/Invalid transition.
+            resulting_status = new_status_str or report.status
+            if resulting_status not in activity_statuses:
+                return DomainResult.error(ReportActivityNotPermittedError)
+
+            if not activity_remarks:
+                return DomainResult.error(ActivityRemarksRequiredError)
+
+            # A referral is an On-Hold condition (waiting on another office),
+            # not an In Progress field note.
+            if (
+                activity == ReportActivity.REFERRED.value
+                and resulting_status != HazardReports.Status.ON_HOLD.value
+            ):
+                return DomainResult.error(ReferralRequiresOnHoldError)
+
         if (
             remarks
             and not new_status_str
             and not new_category_id
             and not ai_flag_decision
+            and not activity
         ) or (resolution_images and not new_status_str):
             return DomainResult.error(InvalidReportUpdateError)
 
         # Validated against the status as the request found it (before any
         # transition below applies): the category is only editable while the
-        # report sits in Under Review — the verification stage where a
-        # misclassified citizen submission gets caught.
+        # report sits in In Progress — the handling stage where a misclassified
+        # citizen submission gets caught.
         if new_category_id is not None:
-            if HazardReports.Status(report.status) != HazardReports.Status.UNDER_REVIEW:
+            if HazardReports.Status(report.status) != HazardReports.Status.IN_PROGRESS:
                 return DomainResult.error(CategoryChangeNotPermittedError)
 
             if not remarks:
@@ -556,6 +604,12 @@ class ReportService:
                 # category allows.
                 report.due_at = report.created_at + timedelta(days=new_category.response_time_days)
                 updated_fields.append("due_at")
+
+                # Keep the report's latest-reason field in sync with the
+                # category correction (the audit entry already carries it).
+                report.remarks = remarks
+                if "remarks" not in updated_fields:
+                    updated_fields.append("remarks")
 
                 AuditLogService.log_report_category_change(
                     actor=user,
@@ -596,18 +650,37 @@ class ReportService:
             if new_status_str in HazardReports.Status.get_mandatory_remarks_statuses() and not remarks:
                 return DomainResult.error(MandatoryRemarksStatusError)
 
-            # Assigned has exactly one next stage: Under Review. Enforced
+            # Assigned has exactly one next stage: In Progress. Enforced
             # here so the rule holds no matter how the PATCH is sent.
-            if report.status == HazardReports.Status.ASSIGNED and new_status_str != HazardReports.Status.UNDER_REVIEW:
+            if report.status == HazardReports.Status.ASSIGNED and new_status_str != HazardReports.Status.IN_PROGRESS:
                 return DomainResult.error(AssignedStatusTransitionError)
 
-            # Severity is the triage verdict made during Under Review: it
-            # must already exist or be supplied in this same update before
-            # the report advances to On-Hold or Dispatched. Flagging Invalid
-            # stays exempt — that is a moderation verdict, not a triage one.
+            # The transition matrix is the single source of truth for legal
+            # status moves. Enforcing it server-side keeps the API from
+            # creating stages the UI (and the citizen timeline) cannot render.
+            current_status_value = HazardReports.Status(report.status).value
+            allowed_next = STATUS_ALLOWED_TRANSITIONS.get(current_status_value, ())
+            if new_status_str not in allowed_next:
+                return DomainResult.error(StatusTransitionNotAllowedError)
+
+            # Severity is the triage verdict made when handling starts: it
+            # must already exist or be supplied in this same update before the
+            # report enters In Progress, and remains required before moving to
+            # On-Hold or Resolved. Flagging Invalid stays exempt — that is a
+            # moderation verdict, not a triage one.
             if (
-                report.status == HazardReports.Status.UNDER_REVIEW
-                and new_status_str in (HazardReports.Status.ON_HOLD, HazardReports.Status.DISPATCHED)
+                report.status == HazardReports.Status.ASSIGNED
+                and new_status_str == HazardReports.Status.IN_PROGRESS
+                and not (new_severity_str or report.severity)
+            ):
+                return DomainResult.error(MandatorySeverityStatusError)
+
+            if (
+                report.status == HazardReports.Status.IN_PROGRESS
+                and new_status_str in (
+                    HazardReports.Status.ON_HOLD,
+                    HazardReports.Status.RESOLVED,
+                )
                 and not (new_severity_str or report.severity)
             ):
                 return DomainResult.error(MandatorySeverityStatusError)
@@ -618,8 +691,19 @@ class ReportService:
             status_changed = True
             updated_fields.append("status")
 
+            # A manual New -> Assigned move (e.g. an admin picking up an
+            # unassigned report) should also make the actor the custodian;
+            # otherwise the report would be "Assigned" to nobody.
+            if (
+                new_status_str == HazardReports.Status.ASSIGNED.value
+                and not report.assigned_to_id
+            ):
+                report.assigned_to = user
+                updated_fields.append("assigned_to")
+
             report.remarks = remarks
-            updated_fields.append("remarks")
+            if "remarks" not in updated_fields:
+                updated_fields.append("remarks")
 
             if new_status_str == HazardReports.Status.RESOLVED:
                 # DO 47 s.2024 Appendix A-8: the Documentation Photolog must
@@ -712,6 +796,22 @@ class ReportService:
                 old_severity=old_severity,
                 new_severity=report.severity,
                 report=report
+            )
+
+        if activity:
+            # Activities are notes inside the handling phase, not ticket
+            # transitions. The activity note has its own remark so it never
+            # overwrites a status-change remark in the audit trail.
+            if not status_changed or not remarks:
+                report.remarks = activity_remarks
+                if "remarks" not in updated_fields:
+                    updated_fields.append("remarks")
+
+            AuditLogService.log_report_activity(
+                actor=user,
+                report=report,
+                activity=activity,
+                remarks=activity_remarks,
             )
 
         if updated_fields:

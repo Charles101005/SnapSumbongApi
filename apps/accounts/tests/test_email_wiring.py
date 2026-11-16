@@ -12,6 +12,18 @@ from apps.reports.services import ReportService
 from external.email.email_service import EmailService
 
 
+def _assign_to(report, staff):
+    """Move a freshly submitted report into the Assigned stage.
+
+    The transition matrix requires a report to be Assigned before In Progress,
+    so the email-wiring tests put it there explicitly instead of relying on
+    the assignment pool.
+    """
+    report.status = HazardReports.Status.ASSIGNED
+    report.assigned_to = staff
+    report.save(update_fields=["status", "assigned_to"])
+
+
 @pytest.mark.django_db
 class TestEmailWiringEndToEnd:
     """Only ResendClient.deliver (the network boundary) is stubbed, so every
@@ -117,17 +129,18 @@ class TestEmailWiringEndToEnd:
         assert self.emails()[0]['subject'] == f'We received your report {report.report_number}'
         assert '123 Rizal St' in self.emails()[0]['html_body']
 
+        _assign_to(report, staff)
         with django_capture_on_commit_callbacks(execute=True):
             ReportService.update_authorized_assigned_report(
                 user=staff, report_number=report.report_number,
-                new_status_str='UNDER_REVIEW', remarks='Triaged by desk.',
+                new_status_str='IN_PROGRESS', new_severity_str='P2', remarks='Triaged by desk.',
             )
 
         assert len(self.emails()) == 2
         status_msg = self.emails()[1]
         assert report.report_number in status_msg['subject']
         assert 'Triaged by desk.' in status_msg['html_body']
-        assert 'Under Review' in status_msg['html_body']
+        assert 'In Progress' in status_msg['html_body']
 
     def test_status_update_without_remarks_hides_block(self, citizen_role, supervisor_role, django_capture_on_commit_callbacks):
         from apps.accounts.tests.factories import UserFactory
@@ -144,10 +157,11 @@ class TestEmailWiringEndToEnd:
                 address='A', description='B', is_anonymous=False, image_urls=[],
             ).value
 
+        _assign_to(report, staff)
         with django_capture_on_commit_callbacks(execute=True):
             ReportService.update_authorized_assigned_report(
                 user=staff, report_number=report.report_number,
-                new_status_str='UNDER_REVIEW',
+                new_status_str='IN_PROGRESS', new_severity_str='P2',
             )
 
         assert len(self.emails()) == 2
@@ -235,10 +249,11 @@ class TestIsNotifiedGating:
 
         assert self.sent == []
 
+        _assign_to(report, staff)
         with django_capture_on_commit_callbacks(execute=True):
             ReportService.update_authorized_assigned_report(
                 user=staff, report_number=report.report_number,
-                new_status_str='UNDER_REVIEW',
+                new_status_str='IN_PROGRESS', new_severity_str='P2',
             )
 
         assert self.sent == []
@@ -254,10 +269,11 @@ class TestIsNotifiedGating:
 
         assert len(self.sent) == 1
 
+        _assign_to(report, staff)
         with django_capture_on_commit_callbacks(execute=True):
             ReportService.update_authorized_assigned_report(
                 user=staff, report_number=report.report_number,
-                new_status_str='UNDER_REVIEW',
+                new_status_str='IN_PROGRESS', new_severity_str='P2',
             )
 
         assert len(self.sent) == 2

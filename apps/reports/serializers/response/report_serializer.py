@@ -3,8 +3,25 @@ from decimal import Decimal
 
 from rest_framework import serializers
 
-from apps.reports.models import HazardReports, ReportImages
+from apps.reports.models import (
+    HazardReports,
+    LEGACY_STATUS_ACTIVITY_LABELS,
+    LEGACY_STATUS_TO_CODE,
+    ReportImages,
+)
 from apps.audits.models import AuditLogs
+
+
+def _status_code(value) -> str | None:
+    """Normalize a status code or label to its upper-case code."""
+    if not value:
+        return None
+    return str(value).strip().upper().replace(" ", "_").replace("-", "_")
+
+
+def _legacy_activity_label(value) -> str | None:
+    code = _status_code(value)
+    return LEGACY_STATUS_ACTIVITY_LABELS.get(code)
 
 
 def _staff_display_name(user) -> dict[str, str] | None:
@@ -19,17 +36,22 @@ def _staff_display_name(user) -> dict[str, str] | None:
 
 
 def _status_display(value) -> str | None:
-    """Resolve either a raw status code or an already-humanized label.
+    """Resolve a raw status code, a display label, or a retired status label.
 
     Older audit entries stored raw codes ("ON_HOLD") while newer ones store the
     display label ("On-Hold"); the timeline should render the same thing for
-    both.
+    both. Retired statuses (Under Review, Dispatched, Ongoing) collapse into
+    In Progress and are surfaced as activities by the frontend.
     """
     if not value:
         return None
 
+    code = _status_code(value)
+    if code in LEGACY_STATUS_TO_CODE:
+        code = LEGACY_STATUS_TO_CODE[code]
+
     try:
-        return HazardReports.Status(value).label
+        return HazardReports.Status(code).label
     except ValueError:
         return value
 
@@ -230,6 +252,7 @@ class GetReportDetailResponseSerializer(serializers.Serializer):
                     AuditLogs.ActionType.CREATE,
                     AuditLogs.ActionType.STATUS_CHANGE,
                     AuditLogs.ActionType.TRANSFER,
+                    AuditLogs.ActionType.ACTIVITY_NOTE,
                 )
             ),
             key=lambda audit_log: (audit_log.created_at, audit_log.audit_log_id),
@@ -238,19 +261,36 @@ class GetReportDetailResponseSerializer(serializers.Serializer):
 
         for audit_log in audit_logs:
             payload = audit_log.payload or {}
+            activity_note = payload.get("activity_note") or {}
             status_change = payload.get("status_change") or {}
-            # TRANSFER logs carry an assignment_change payload instead of a
-            # status change; fall back to the report's current status.
+            initial_status = payload.get("initial_status")
+            to_status = status_change.get("to")
+            # ACTIVITY_NOTE entries do not change status; their payload carries
+            # the status the report was in when the note was written.
             status = _status_display(
-                payload.get("initial_status") or status_change.get("to")
+                initial_status
+                or to_status
+                or activity_note.get("status")
+                or payload.get("status")
             ) or HazardReports.Status(value.status).label
 
             if audit_log.action == AuditLogs.ActionType.CREATE:
                 from_status = None
-                to_status = payload.get("initial_status") or status
+                to_status = initial_status or status
             else:
                 from_status = status_change.get("from")
-                to_status = status_change.get("to")
+
+            # Retired statuses become activities inside In Progress. Explicit
+            # ACTIVITY_NOTE entries carry their own label from the payload.
+            legacy_label = _legacy_activity_label(to_status or initial_status)
+            activity_label = (
+                activity_note.get("label")
+                or payload.get("activity_label")
+                or legacy_label
+            )
+            activity_code = activity_note.get("type") or payload.get("activity") or (
+                _status_code(to_status or initial_status) if legacy_label else None
+            )
 
             actor = audit_log.user
             status_timeline.append({
@@ -266,6 +306,9 @@ class GetReportDetailResponseSerializer(serializers.Serializer):
                 "to_status": to_status,
                 "remarks": payload.get("remarks") or None,
                 "performed_by_role": actor.role.role_name if actor and actor.role else None,
+                "activity": activity_code,
+                "activity_label": activity_label,
+                "is_activity": bool(activity_label),
             })
         return status_timeline
 
@@ -345,6 +388,7 @@ class GetReportHistoryDetailResponseSerializer(serializers.Serializer):
                     AuditLogs.ActionType.CREATE,
                     AuditLogs.ActionType.STATUS_CHANGE,
                     AuditLogs.ActionType.TRANSFER,
+                    AuditLogs.ActionType.ACTIVITY_NOTE,
                     AuditLogs.ActionType.AI_FLAG_DETECTED,
                     AuditLogs.ActionType.AI_FLAG_REVIEW,
                 )
@@ -354,17 +398,32 @@ class GetReportHistoryDetailResponseSerializer(serializers.Serializer):
         status_timeline = []
 
         for audit_log in audit_logs:
-            payload = audit_log.payload
+            payload = audit_log.payload or {}
+            activity_note = payload.get("activity_note") or {}
             # TRANSFER and AI-flag logs may carry something other than a
             # top-level status_change payload; fall back to the report's
             # current status when no status can be derived.
             ai_flag_review = payload.get("ai_flag_review") or {}
             review_status_change = ai_flag_review.get("status_change") or {}
+            status_change = payload.get("status_change") or {}
+            initial_status = payload.get("initial_status")
+            to_status = status_change.get("to") or review_status_change.get("to")
             status = _status_display(
-                payload.get("initial_status")
-                or payload.get("status_change", {}).get("to")
-                or review_status_change.get("to")
+                initial_status
+                or to_status
+                or activity_note.get("status")
+                or payload.get("status")
             ) or HazardReports.Status(value.status).label
+
+            legacy_label = _legacy_activity_label(to_status or initial_status)
+            activity_label = (
+                activity_note.get("label")
+                or payload.get("activity_label")
+                or legacy_label
+            )
+            activity_code = activity_note.get("type") or payload.get("activity") or (
+                _status_code(to_status or initial_status) if legacy_label else None
+            )
 
             user = audit_log.user
             if user:
@@ -387,6 +446,12 @@ class GetReportHistoryDetailResponseSerializer(serializers.Serializer):
                 "description": audit_log.description,
                 "status": status,
                 "created_at": audit_log.created_at.isoformat(),
+                "from_status": status_change.get("from"),
+                "to_status": to_status,
+                "remarks": payload.get("remarks") or None,
+                "activity": activity_code,
+                "activity_label": activity_label,
+                "is_activity": bool(activity_label),
                 "performed_by": {
                     "name": name,
                     "role": user.role.role_name if user else None

@@ -27,7 +27,7 @@ def _resolved_report(handler, *, due_delta, resolved_delta, status=HazardReports
     )
 
 
-def _open_report(handler, *, due_delta, status=HazardReports.Status.DISPATCHED):
+def _open_report(handler, *, due_delta, status=HazardReports.Status.IN_PROGRESS):
     return HazardReportFactory(
         status=status,
         assigned_to=handler,
@@ -58,7 +58,7 @@ class TestHandlerWorkloadMetrics:
         _resolved_report(handler, due_delta=timedelta(days=1), resolved_delta=timedelta(hours=1))
         _resolved_report(handler, due_delta=timedelta(days=1), resolved_delta=timedelta(days=4))
         _open_report(handler, due_delta=timedelta(days=-1))
-        _open_report(handler, due_delta=timedelta(days=3), status=HazardReports.Status.ONGOING)
+        _open_report(handler, due_delta=timedelta(days=3), status=HazardReports.Status.IN_PROGRESS)
 
         workload = AnalyticService.get_handler_workload(user=viewer).value
 

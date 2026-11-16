@@ -21,7 +21,7 @@ class TestTransferReport:
         current_officer = UserFactory(role=report_officer_role, is_staff=True)
         new_officer = UserFactory(role=report_officer_role, is_staff=True)
         report = HazardReportFactory(
-            status=HazardReports.Status.UNDER_REVIEW,
+            status=HazardReports.Status.IN_PROGRESS,
             assigned_to=current_officer,
             reported_by=UserFactory(role=citizen_role),
         )
@@ -36,7 +36,7 @@ class TestTransferReport:
         assert result.is_success
         report.refresh_from_db()
         assert report.assigned_to_id == new_officer.user_id
-        assert report.status == HazardReports.Status.UNDER_REVIEW
+        assert report.status == HazardReports.Status.IN_PROGRESS
 
     def test_transfer_writes_transfer_audit_log(
         self, supervisor_role, report_officer_role, citizen_role

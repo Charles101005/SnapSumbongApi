@@ -70,7 +70,7 @@ class TestIssueWarning:
         supervisor = UserFactory(role=supervisor_role, is_staff=True)
         citizen = UserFactory(role=citizen_role)
         report = HazardReportFactory(
-            status=HazardReports.Status.UNDER_REVIEW,
+            status=HazardReports.Status.IN_PROGRESS,
             reported_by=citizen,
         )
 
@@ -237,7 +237,7 @@ class TestBanCitizen:
         admin = UserFactory(role=system_admin_role, is_staff=True)
         citizen = UserFactory(role=citizen_role)
         report = HazardReportFactory(
-            status=HazardReports.Status.UNDER_REVIEW,
+            status=HazardReports.Status.IN_PROGRESS,
             reported_by=citizen,
         )
 

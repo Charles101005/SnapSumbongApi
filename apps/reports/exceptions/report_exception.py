@@ -37,3 +37,9 @@ class InvalidAiFlagDecisionException(BaseDomainException):
     detail: str = "The AI screening review decision is invalid"
     status_code: int = status.HTTP_400_BAD_REQUEST
     error_code: str = "INVALID_AI_FLAG_DECISION"
+
+
+class InvalidReportActivityException(BaseDomainException):
+    detail: str = "The specified report activity is invalid"
+    status_code: int = status.HTTP_400_BAD_REQUEST
+    error_code: str = "INVALID_REPORT_ACTIVITY"

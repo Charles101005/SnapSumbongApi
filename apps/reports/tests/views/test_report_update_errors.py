@@ -13,7 +13,7 @@ class TestReportPatchErrors:
         officer = UserFactory(role=report_officer_role, is_staff=True)
         defaults = {
             "assigned_to": officer,
-            "status": HazardReports.Status.UNDER_REVIEW,
+            "status": HazardReports.Status.IN_PROGRESS,
             "severity": "P2",
         }
         defaults.update(report_kwargs)
@@ -48,7 +48,7 @@ class TestReportPatchErrors:
         assert response.status_code == 400
         assert response.json()["error_code"] == "INVALID_REPORT_UPDATE"
         report.refresh_from_db()
-        assert report.status == HazardReports.Status.UNDER_REVIEW
+        assert report.status == HazardReports.Status.IN_PROGRESS
 
     def test_nonexistent_status_string_is_rejected(
         self, api_client, report_officer_role
@@ -65,7 +65,7 @@ class TestReportPatchErrors:
         assert response.status_code == 400
         assert response.json()["error_code"] == "INVALID_REPORT_STATUS"
         report.refresh_from_db()
-        assert report.status == HazardReports.Status.UNDER_REVIEW
+        assert report.status == HazardReports.Status.IN_PROGRESS
 
     def test_transition_to_the_current_status_is_rejected(
         self, api_client, report_officer_role
@@ -75,7 +75,7 @@ class TestReportPatchErrors:
         api_client.force_authenticate(user=officer)
         response = api_client.patch(
             f"/reports/{report.report_number}/",
-            {"status": "UNDER_REVIEW"},
+            {"status": "IN_PROGRESS"},
             format="json",
         )
 
@@ -93,7 +93,7 @@ class TestReportPatchErrors:
         assert response.status_code == 200
         assert response.json()["detail"] == "Operation completed successfully."
         report.refresh_from_db()
-        assert report.status == HazardReports.Status.UNDER_REVIEW
+        assert report.status == HazardReports.Status.IN_PROGRESS
         assert report.severity == "P2"
 
 
@@ -109,7 +109,7 @@ class TestResolveWithPhotolog:
         officer = UserFactory(role=report_officer_role, is_staff=True)
         report = HazardReportFactory(
             assigned_to=officer,
-            status=HazardReports.Status.UNDER_REVIEW,
+            status=HazardReports.Status.IN_PROGRESS,
             severity="P2",
         )
         return officer, report
@@ -173,4 +173,4 @@ class TestResolveWithPhotolog:
         assert response.status_code == 400
         assert "Invalid URL" in response.content.decode()
         report.refresh_from_db()
-        assert report.status == HazardReports.Status.UNDER_REVIEW
+        assert report.status == HazardReports.Status.IN_PROGRESS

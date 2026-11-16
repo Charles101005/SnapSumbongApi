@@ -20,6 +20,9 @@ class TestCitizenTimelineDetail:
         "to_status",
         "remarks",
         "performed_by_role",
+        "activity",
+        "activity_label",
+        "is_activity",
     }
 
     @staticmethod
@@ -27,7 +30,7 @@ class TestCitizenTimelineDetail:
         officer = UserFactory(role=report_officer_role, is_staff=True)
         reporter = UserFactory(role=citizen_role)
         report = HazardReportFactory(
-            status=HazardReports.Status.UNDER_REVIEW,
+            status=HazardReports.Status.IN_PROGRESS,
             assigned_to=officer,
             reported_by=reporter,
         )
@@ -57,7 +60,7 @@ class TestCitizenTimelineDetail:
         entry = timeline[-1]
         assert entry["status"] == "Invalid"
         assert entry["action"] == "STATUS_CHANGE"
-        assert entry["from_status"] == "Under Review"
+        assert entry["from_status"] == "In Progress"
         assert entry["to_status"] == "Invalid"
         assert entry["remarks"] == remarks
         assert entry["performed_by_role"] == report_officer_role.role_name

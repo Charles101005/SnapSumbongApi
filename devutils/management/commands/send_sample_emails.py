@@ -89,7 +89,7 @@ class Command(DebugOnlyCommand):
                 self.SAMPLE_SUBMITTED_AT_FORMAT
             ),
             "old_status": HazardReports.Status.ASSIGNED.label,
-            "new_status": HazardReports.Status.UNDER_REVIEW.label,
+            "new_status": HazardReports.Status.IN_PROGRESS.label,
             "case_id": model_number_generator("LOG"),
             "flagged_report_count": 2,
             "total_report_count": 5,

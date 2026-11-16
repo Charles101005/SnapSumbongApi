@@ -19,6 +19,7 @@ from devutils.seeders.base_seeder import (
     Progress,
     TRANSFER_REMARKS,
     audit_report_create,
+    audit_activity_note,
     audit_severity_change,
     audit_status_change,
     backdate,
@@ -50,10 +51,8 @@ class ReportSeedInfo:
 ARCHETYPES = [
     ("new",           "mm", "NEW"),
     ("assigned",      "mm", "ASSIGNED"),
-    ("under_review",  "mm", "UNDER_REVIEW"),
+    ("in_progress",   "mm", "IN_PROGRESS"),
     ("on_hold",       "mm", "ON_HOLD"),
-    ("dispatched",    "mm", "DISPATCHED"),
-    ("ongoing",       "mm", "ONGOING"),
     ("resolved",      "mm", "RESOLVED"),
     ("closed_conf",   "mm", "CLOSED"),
     ("invalid",       "mm", "INVALID"),
@@ -62,26 +61,25 @@ ARCHETYPES = [
 ]
 
 FILL_WEIGHTS = [
-    ("new", 6), ("assigned", 8), ("under_review", 10), ("on_hold", 8),
-    ("dispatched", 9), ("ongoing", 9), ("resolved", 9), ("closed_conf", 12),
-    ("invalid", 9), ("oj_hold", 6), ("oj_closed", 6),
+    ("new", 6), ("assigned", 8), ("in_progress", 28), ("on_hold", 8),
+    ("resolved", 9), ("closed_conf", 12), ("invalid", 9),
+    ("oj_hold", 6), ("oj_closed", 6),
 ]
 
 # Ordered status path AFTER creation for each archetype. Every consecutive
 # pair is valid per STATUS_ALLOWED_TRANSITIONS, and ASSIGNED only ever leads
-# to UNDER_REVIEW (server-enforced rule).
+# to IN_PROGRESS (server-enforced rule). Validation, dispatch, and field work
+# are activity notes inside IN_PROGRESS, not separate statuses.
 PATHS: dict[str, list[str]] = {
     "new":          [],
     "assigned":     [],
-    "under_review": ["UNDER_REVIEW"],
-    "on_hold":      ["UNDER_REVIEW", "ON_HOLD"],
-    "dispatched":   ["UNDER_REVIEW", "DISPATCHED"],
-    "ongoing":      ["UNDER_REVIEW", "DISPATCHED", "ONGOING"],
-    "resolved":     ["UNDER_REVIEW", "DISPATCHED", "ONGOING", "RESOLVED"],
-    "closed_conf":  ["UNDER_REVIEW", "DISPATCHED", "ONGOING", "RESOLVED", "CLOSED"],
-    "invalid":      ["UNDER_REVIEW", "INVALID"],
-    "oj_hold":      ["UNDER_REVIEW", "ON_HOLD"],
-    "oj_closed":    ["UNDER_REVIEW", "ON_HOLD", "CLOSED"],
+    "in_progress":  ["IN_PROGRESS"],
+    "on_hold":      ["IN_PROGRESS", "ON_HOLD"],
+    "resolved":     ["IN_PROGRESS", "RESOLVED"],
+    "closed_conf":  ["IN_PROGRESS", "RESOLVED", "CLOSED"],
+    "invalid":      ["IN_PROGRESS", "INVALID"],
+    "oj_hold":      ["IN_PROGRESS", "ON_HOLD"],
+    "oj_closed":    ["IN_PROGRESS", "ON_HOLD", "CLOSED"],
 }
 
 SEVERITY_BAG_WEIGHTS = ["P3", "P3", "P4", "P4", "P4", "P2", "P2", "P5", "P5", "P1"]
@@ -247,9 +245,10 @@ def _generate_report(
     for i, next_status in enumerate(planned_path):
         remarks_pool = _remarks_pool(next_status, juris)
 
-        # Mandatory severity gate: UNDER_REVIEW → ON_HOLD / DISPATCHED
-        # requires a triage severity (mirrors MandatorySeverityStatusError).
-        if next_status in ("ON_HOLD", "DISPATCHED") and not severity_set:
+        # Mandatory severity gate: entering IN_PROGRESS (or moving from it to
+        # ON_HOLD/RESOLVED) requires a triage severity, mirroring
+        # MandatorySeverityStatusError.
+        if next_status in ("IN_PROGRESS", "ON_HOLD", "RESOLVED") and not severity_set:
             cursor += timedelta(hours=random.randint(1, 10))
             new_sev = next(sev_iter)
             old_sev = report.severity
@@ -308,6 +307,29 @@ def _generate_report(
             remarks="Resolution confirmed by the reporter." if is_confirm_close
                     else (report.remarks if "remarks" in update_fields else None),
         )
+
+        if next_status == "IN_PROGRESS":
+            # Validation, dispatch, and field work are activities inside
+            # In Progress, not separate ticket statuses. Seed the two most
+            # common follow-ups so the officer/citizen timelines have content.
+            for code, label, note in (
+                ("DISPATCHED", "Forwarded to field personnel",
+                 "Forwarded to the concerned engineering field team."),
+                ("WORK_STARTED", "Corrective work started",
+                 "Field crew started the corrective works on site."),
+            ):
+                if chance(0.7):
+                    cursor += timedelta(hours=random.randint(2, 24))
+                    audit_activity_note(
+                        ev=events,
+                        actor=actor,
+                        report=report,
+                        activity=code,
+                        activity_label=label,
+                        status=report.status.label,
+                        at=cursor,
+                        remarks=note,
+                    )
 
         if next_status == "INVALID":
             invalid_submission = True

@@ -23,10 +23,26 @@ class TestReportLookupView:
                 "response_time_days": category.response_time_days,
             }
         ]
-        assert {
-            "label": HazardReports.Status.NEW.label,
-            "value": HazardReports.Status.NEW.value,
-        } in data["statuses"]
+        assert len(data["statuses"]) == 7
+        new_status = next(
+            item for item in data["statuses"]
+            if item["value"] == HazardReports.Status.NEW.value
+        )
+        assert new_status["label"] == HazardReports.Status.NEW.label
+        assert new_status["description"]
+        assert new_status["is_terminal"] is False
+
+        resolved_status = next(
+            item for item in data["statuses"]
+            if item["value"] == HazardReports.Status.RESOLVED.value
+        )
+        assert resolved_status["is_terminal"] is False
+
+        closed_status = next(
+            item for item in data["statuses"]
+            if item["value"] == HazardReports.Status.CLOSED.value
+        )
+        assert closed_status["is_terminal"] is True
         assert data["severities"] == [
             severity.value for severity in HazardReports.Severity
         ]

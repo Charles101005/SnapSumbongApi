@@ -11,7 +11,7 @@ class TestInvalidStatus:
         officer = UserFactory(role=report_officer_role, is_staff=True)
         reporter = UserFactory(role=report_officer_role)
         report = HazardReportFactory(
-            status=HazardReports.Status.UNDER_REVIEW,
+            status=HazardReports.Status.IN_PROGRESS,
             assigned_to=officer,
             reported_by=reporter,
         )
@@ -30,7 +30,7 @@ class TestInvalidStatus:
         officer = UserFactory(role=report_officer_role, is_staff=True)
         reporter = UserFactory(role=report_officer_role)
         report = HazardReportFactory(
-            status=HazardReports.Status.UNDER_REVIEW,
+            status=HazardReports.Status.IN_PROGRESS,
             assigned_to=officer,
             reported_by=reporter,
         )
@@ -103,7 +103,7 @@ class TestInvalidStatus:
             reported_by=reporter,
         )
         HazardReportFactory(
-            status=HazardReports.Status.UNDER_REVIEW,
+            status=HazardReports.Status.IN_PROGRESS,
             assigned_to=officer,
             reported_by=reporter,
         )
@@ -114,7 +114,7 @@ class TestInvalidStatus:
         assert response.status_code == 200
         statuses = [r["status"] for r in response.data["results"]]
         assert "Invalid" not in statuses
-        assert "Under Review" in statuses
+        assert "In Progress" in statuses
 
     def test_detail_exposes_reporter_user_number_to_staff(self, api_client, report_officer_role):
         officer = UserFactory(role=report_officer_role, is_staff=True)

@@ -8,12 +8,10 @@ from apps.accounts.tests.factories import UserFactory
 @pytest.mark.parametrize(
     "status,expected",
     [
-        (HazardReports.Status.NEW, ["Under Review", "Invalid"]),
-        (HazardReports.Status.ASSIGNED, ["Under Review"]),
-        (HazardReports.Status.UNDER_REVIEW, ["On-Hold", "Dispatched", "Invalid"]),
-        (HazardReports.Status.ON_HOLD, ["Under Review", "Dispatched", "Closed", "Invalid"]),
-        (HazardReports.Status.DISPATCHED, ["Ongoing", "Resolved", "On-Hold", "Invalid"]),
-        (HazardReports.Status.ONGOING, ["Resolved", "On-Hold"]),
+        (HazardReports.Status.NEW, ["Assigned", "Invalid"]),
+        (HazardReports.Status.ASSIGNED, ["In Progress"]),
+        (HazardReports.Status.IN_PROGRESS, ["On-Hold", "Resolved", "Invalid"]),
+        (HazardReports.Status.ON_HOLD, ["In Progress", "Closed", "Invalid"]),
         (HazardReports.Status.RESOLVED, ["Closed"]),
         (HazardReports.Status.CLOSED, []),
         (HazardReports.Status.INVALID, []),
@@ -33,7 +31,7 @@ class TestNextExpectedStatusesInDetailEndpoint:
         officer = UserFactory(role=report_officer_role, is_staff=True)
         reporter = UserFactory(role=report_officer_role)
         report = HazardReportFactory(
-            status=HazardReports.Status.UNDER_REVIEW,
+            status=HazardReports.Status.IN_PROGRESS,
             assigned_to=officer,
             reported_by=reporter,
         )
@@ -42,7 +40,7 @@ class TestNextExpectedStatusesInDetailEndpoint:
         response = api_client.get(f"/reports/{report.report_number}/")
 
         assert response.status_code == 200
-        assert response.data["next_expected_statuses"] == ["On-Hold", "Dispatched", "Invalid"]
+        assert response.data["next_expected_statuses"] == ["On-Hold", "Resolved", "Invalid"]
 
     def test_staff_detail_closed_report_has_no_transitions(self, api_client, report_officer_role):
         officer = UserFactory(role=report_officer_role, is_staff=True)
@@ -71,8 +69,7 @@ class TestNextExpectedStatusesInDetailEndpoint:
 
         assert response.status_code == 200
         assert response.data["next_expected_statuses"] == [
-            "Under Review",
-            "Dispatched",
+            "In Progress",
             "Closed",
             "Invalid",
         ]

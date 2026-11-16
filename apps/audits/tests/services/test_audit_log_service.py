@@ -375,7 +375,7 @@ class TestDescriptionTruncation:
 
         AuditLogService.log_report_status_change(
             actor=actor,
-            old_status="Under Review",
+            old_status="In Progress",
             new_status="On-Hold",
             remarks=remarks,
             report=HazardReportFactory(),

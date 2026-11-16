@@ -32,7 +32,8 @@ def _resolve(user, report, remarks="Pothole patched and compacted.", validated_b
 class TestDeclaredValidator:
     def _assigned_report(self):
         return HazardReportFactory(
-            status=HazardReports.Status.DISPATCHED,
+            status=HazardReports.Status.IN_PROGRESS,
+            severity="P2",
             due_at=timezone.now() + timedelta(days=2),
         )
 
@@ -62,7 +63,7 @@ class TestDeclaredValidator:
         assert result.is_success is False
         assert result.error is ValidatorNameRequiredError
         report.refresh_from_db()
-        assert report.status == HazardReports.Status.DISPATCHED
+        assert report.status == HazardReports.Status.IN_PROGRESS
         assert report.validated_by_name is None
         assert report.validated_by_id is None
         assert report.resolved_at is None

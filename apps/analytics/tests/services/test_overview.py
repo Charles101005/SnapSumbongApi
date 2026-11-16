@@ -190,12 +190,12 @@ class TestOverviewSlaOutcomes:
         )
         # Breach: still open past a deadline that already passed.
         HazardReportFactory(
-            status=HazardReports.Status.DISPATCHED,
+            status=HazardReports.Status.IN_PROGRESS,
             due_at=now - timedelta(days=1),
         )
         # Pending: open, deadline still ahead.
         HazardReportFactory(
-            status=HazardReports.Status.ONGOING,
+            status=HazardReports.Status.IN_PROGRESS,
             due_at=now + timedelta(days=3),
         )
 
@@ -279,7 +279,7 @@ class TestOverviewLiveBacklog:
         )
         _backdate(overdue, created=timezone.now() - timedelta(days=10))
         HazardReportFactory(
-            status=HazardReports.Status.ONGOING,
+            status=HazardReports.Status.IN_PROGRESS,
             due_at=timezone.now() + timedelta(days=2),
         )
         HazardReportFactory(status=HazardReports.Status.RESOLVED, resolved_at=timezone.now())

@@ -58,8 +58,9 @@ class TestResolvePhotologRules:
     def _officer_with_report(self, report_officer_role):
         officer = UserFactory(role=report_officer_role, is_staff=True)
         report = HazardReportFactory(
-            status=HazardReports.Status.DISPATCHED,
+            status=HazardReports.Status.IN_PROGRESS,
             assigned_to=officer,
+            severity="P2",
             due_at=timezone.now() + timedelta(days=2),
         )
         return officer, report
@@ -103,7 +104,7 @@ class TestResolvePhotologRules:
         assert result.is_success is False
         assert result.error is ResolutionImageRequiredError
         report.refresh_from_db()
-        assert report.status == HazardReports.Status.DISPATCHED
+        assert report.status == HazardReports.Status.IN_PROGRESS
 
     def test_resolve_missing_during_photo_is_rejected(self, report_officer_role):
         officer, report = self._officer_with_report(report_officer_role)
@@ -143,8 +144,8 @@ class TestResolvePhotologRules:
         result = ReportService.update_authorized_assigned_report(
             user=officer,
             report_number=report.report_number,
-            new_status_str=HazardReports.Status.CLOSED,
-            remarks="Out of jurisdiction.",
+            new_status_str=HazardReports.Status.ON_HOLD,
+            remarks="Referred to another office.",
             resolution_images=_resolve_images(),
         )
 

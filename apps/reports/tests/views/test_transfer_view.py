@@ -21,7 +21,7 @@ class TestReportTransferView:
         current_officer = UserFactory(role=report_officer_role, is_staff=True)
         new_officer = UserFactory(role=report_officer_role, is_staff=True)
         report = self._report(
-            HazardReports.Status.UNDER_REVIEW,
+            HazardReports.Status.IN_PROGRESS,
             current_officer,
             UserFactory(role=citizen_role),
         )
@@ -36,7 +36,7 @@ class TestReportTransferView:
         assert response.status_code == 200
         report.refresh_from_db()
         assert report.assigned_to_id == new_officer.user_id
-        assert report.status == HazardReports.Status.UNDER_REVIEW
+        assert report.status == HazardReports.Status.IN_PROGRESS
 
     def test_report_officer_cannot_transfer(
         self, api_client, report_officer_role, citizen_role

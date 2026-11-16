@@ -111,7 +111,7 @@ class TestRegistrationView:
         VerificationRequestFactory(
             email='newuser@email.com',
             purpose=REGISTRATION,
-            last_sent_at=timezone.now() - timedelta(minutes=2),
+            last_sent_at=timezone.now() - timedelta(minutes=1),
             expires_at=timezone.now() + timedelta(minutes=3),
         )
 

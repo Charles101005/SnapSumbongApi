@@ -46,19 +46,49 @@ MandatoryRemarksStatusError = DomainError(
 )
 
 AssignedStatusTransitionError = DomainError(
-    detail="An Assigned report can only move to Under Review.",
+    detail="An Assigned report can only move to In Progress.",
     status_code=status.HTTP_400_BAD_REQUEST,
     error_code="ASSIGNED_STATUS_TRANSITION",
 )
 
+StatusTransitionNotAllowedError = DomainError(
+    detail="The report cannot move directly to this status from its current stage.",
+    status_code=status.HTTP_409_CONFLICT,
+    error_code="STATUS_TRANSITION_NOT_ALLOWED",
+)
+
+ActivityRemarksRequiredError = DomainError(
+    detail="A remark is required when logging a report activity.",
+    status_code=status.HTTP_400_BAD_REQUEST,
+    error_code="ACTIVITY_REMARKS_REQUIRED",
+)
+
+ActivityRemarksWithoutActivityError = DomainError(
+    detail="An activity note must include an activity type.",
+    status_code=status.HTTP_400_BAD_REQUEST,
+    error_code="ACTIVITY_REMARKS_WITHOUT_ACTIVITY",
+)
+
+ReferralRequiresOnHoldError = DomainError(
+    detail="A referral activity must be recorded while the report is On-Hold.",
+    status_code=status.HTTP_409_CONFLICT,
+    error_code="REFERRAL_REQUIRES_ON_HOLD",
+)
+
+ReportActivityNotPermittedError = DomainError(
+    detail="Activities can only be recorded while a report is In Progress or On-Hold.",
+    status_code=status.HTTP_409_CONFLICT,
+    error_code="REPORT_ACTIVITY_NOT_PERMITTED",
+)
+
 MandatorySeverityStatusError = DomainError(
-    detail="A severity (P1-P5) is required when moving a report out of Under Review to On-Hold or Dispatched.",
+    detail="A severity (P1-P5) is required when a report starts In Progress or moves to On-Hold/Resolved.",
     status_code=status.HTTP_400_BAD_REQUEST,
     error_code="MANDATORY_SEVERITY_STATUS",
 )
 
 CategoryChangeNotPermittedError = DomainError(
-    detail="The hazard category can only be changed while the report is Under Review.",
+    detail="The hazard category can only be changed while the report is In Progress.",
     status_code=status.HTTP_409_CONFLICT,
     error_code="CATEGORY_CHANGE_NOT_PERMITTED",
 )

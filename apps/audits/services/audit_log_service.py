@@ -3,7 +3,7 @@ from typing import Any
 from django.db.models import Q
 
 from apps.audits.models import AuditLogs
-from apps.reports.constants import AI_FLAG_DECISION_CLEARED
+from apps.reports.constants import AI_FLAG_DECISION_CLEARED, REPORT_ACTIVITY_LABELS
 from apps.reports.models import HazardReports
 from apps.accounts.models import Users, Roles
 from apps.audits.exceptions.audit_log_exception import AuditLogNotFoundException
@@ -238,6 +238,52 @@ class AuditLogService:
         )
 
     @staticmethod
+    def log_report_activity(
+            *,
+            actor: Users|None,
+            report: HazardReports,
+            activity: str,
+            remarks: str|None=None,
+            payload_override: dict[str, Any]|None=None,
+            description_override: str|None=None,
+    ) -> None:
+        if isinstance(remarks, str):
+            remarks = remarks.strip()
+
+        activity_label = REPORT_ACTIVITY_LABELS.get(activity, activity)
+        payload = payload_override
+        description = description_override
+
+        if not payload:
+            payload = {
+                "activity_note": {
+                    "type": activity,
+                    "label": activity_label,
+                    "status": HazardReports.Status(report.status).label,
+                },
+                "remarks": remarks,
+            }
+
+        if not description:
+            actor_str = actor.user_number if actor else "the System"
+            description = (
+                f"REPORT {report.report_number} activity was recorded as "
+                f"\"{activity_label}\" by {actor_str}"
+            )
+
+            if remarks:
+                description += f" with the remarks: \"{remarks}\""
+
+        AuditLogService._log(
+            actor_id=actor.user_id if actor else None,
+            action=AuditLogs.ActionType.ACTIVITY_NOTE,
+            module=AuditLogs.ModuleType.REPORT,
+            description=description,
+            payload=payload,
+            target_object=report
+        )
+
+    @staticmethod
     def log_report_transfer(
             *,
             actor: Users,
@@ -255,6 +301,9 @@ class AuditLogService:
                 "to": new_assignee.email,
             },
             "remarks": remarks,
+            # Status at the moment of the handoff, so the timeline can place
+            # the transfer under the milestone that was current at the time.
+            "status": HazardReports.Status(report.status).label,
         }
 
         actor_str = actor.user_number

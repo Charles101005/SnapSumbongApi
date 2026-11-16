@@ -24,7 +24,7 @@ class TestReportHistoryDetailView:
         new_officer = UserFactory(role=officer_role, is_staff=True)
         report = HazardReportFactory(
             assigned_to=officer,
-            status=HazardReports.Status.UNDER_REVIEW,
+            status=HazardReports.Status.IN_PROGRESS,
             severity="P2",
             is_anonymous=True,
         )
@@ -95,7 +95,7 @@ class TestReportHistoryDetailView:
         data = response.json()
 
         assert data["report_number"] == report.report_number
-        assert data["status"] == HazardReports.Status.UNDER_REVIEW.label
+        assert data["status"] == HazardReports.Status.IN_PROGRESS.label
         assert data["category"] == report.category.hazard_name
         assert data["image_urls"] == [
             "https://res.cloudinary.com/demo/before.jpg"
@@ -124,7 +124,8 @@ class TestReportHistoryDetailView:
             "name": _display_name(officer),
             "role": officer.role.role_name,
         }
-        assert entries[1]["status"] == "Under Review"
+        assert entries[1]["status"] == "In Progress"
+        assert entries[1]["activity_label"] == "Report validated"
         assert entries[1]["module"] == "Report Management"
         assert entries[1]["description"] == "Report triaged."
 
@@ -135,7 +136,8 @@ class TestReportHistoryDetailView:
 
         # The automated assignment sweep logs with no actor at all.
         assert entries[3]["performed_by"] == {"name": "System", "role": None}
-        assert entries[3]["status"] == "Dispatched"
+        assert entries[3]["status"] == "In Progress"
+        assert entries[3]["activity_label"] == "Forwarded to field personnel"
 
     def test_role_without_history_permission_is_denied(
         self, api_client, citizen_role

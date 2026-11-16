@@ -73,7 +73,7 @@ class TestCitizenConfirmResolution:
     def test_cannot_confirm_report_in_other_status(self, citizen_role):
         citizen = UserFactory(role=citizen_role)
         report = HazardReportFactory(
-            status=HazardReports.Status.DISPATCHED,
+            status=HazardReports.Status.IN_PROGRESS,
             reported_by=citizen,
         )
 
@@ -85,7 +85,7 @@ class TestCitizenConfirmResolution:
         assert result.is_success is False
         assert result.error is ReportNotResolvedError
         report.refresh_from_db()
-        assert report.status == HazardReports.Status.DISPATCHED
+        assert report.status == HazardReports.Status.IN_PROGRESS
         assert report.confirmed_at is None
 
     def test_cannot_confirm_someone_elses_report(self, citizen_role):
@@ -196,7 +196,7 @@ class TestConfirmResolutionEndpoint:
     def test_endpoint_conflicts_when_not_resolved(self, api_client, citizen_role):
         citizen = UserFactory(role=citizen_role)
         report = HazardReportFactory(
-            status=HazardReports.Status.DISPATCHED,
+            status=HazardReports.Status.IN_PROGRESS,
             reported_by=citizen,
         )
         api_client.force_authenticate(user=citizen)

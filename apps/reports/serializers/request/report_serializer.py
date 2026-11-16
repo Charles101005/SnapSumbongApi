@@ -3,7 +3,10 @@ from decimal import Decimal
 from rest_framework import serializers
 from django.conf import settings
 
-from apps.reports.constants import AI_FLAG_DECISIONS
+from apps.reports.constants import (
+    AI_FLAG_DECISIONS,
+    REPORT_ACTIVITY_SELECTABLE_VALUES,
+)
 from external.storage import StorageService, UploadIntent
 
 
@@ -123,8 +126,22 @@ class UpdateReportRequestSerializer(serializers.Serializer):
     status = serializers.CharField()
     remarks = serializers.CharField()
     # Corrects the citizen's hazard category — only accepted while the
-    # report sits in Under Review and always paired with a remark.
+    # report sits in In Progress and always paired with a remark.
     category_id = serializers.IntegerField(required=False)
+    # Optional activity note logged inside the In Progress/On-Hold handling
+    # phase. It never changes the ticket status; it records dispatch, field
+    # work, referrals, or coordination in the report's activity history.
+    activity = serializers.ChoiceField(
+        choices=list(REPORT_ACTIVITY_SELECTABLE_VALUES),
+        required=False,
+    )
+    # Its own remark, separate from the status-change `remarks` field above.
+    activity_remarks = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        max_length=500,
+    )
+
     # DO 47 §2: name of the technical personnel who validated the works —
     # required when transitioning to Resolved.
     validated_by_name = serializers.CharField(required=False, allow_blank=True)
@@ -135,7 +152,7 @@ class UpdateReportRequestSerializer(serializers.Serializer):
     )
     # Officer's answer to a pending AI screening flag: CLEARED (report is
     # valid) or CONFIRMED (report is invalid). Required when a flagged report
-    # moves to On-Hold/Dispatched/Ongoing/Resolved/Closed/Invalid.
+    # moves to On-Hold/Resolved/Closed/Invalid.
     ai_flag_decision = serializers.ChoiceField(
         choices=list(AI_FLAG_DECISIONS),
         required=False,

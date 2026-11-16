@@ -17,7 +17,7 @@ class TestReportAiFlagReview:
         officer = UserFactory(role=role, is_staff=True)
         defaults = {
             "assigned_to": officer,
-            "status": HazardReports.Status.UNDER_REVIEW,
+            "status": HazardReports.Status.IN_PROGRESS,
             "severity": "P2",
             "is_ai_flagged": True,
             "ai_flag_reasons": ["AI_GENERATED", "CONTEXT_MISMATCH"],
@@ -47,7 +47,7 @@ class TestReportAiFlagReview:
         assert response.status_code == 400
         assert response.json()["error_code"] == "AI_FLAG_REVIEW_REQUIRED"
         report.refresh_from_db()
-        assert report.status == HazardReports.Status.UNDER_REVIEW
+        assert report.status == HazardReports.Status.IN_PROGRESS
         assert report.is_ai_flagged is True
         assert report.images.get(image_url=FLAGGED_IMAGE).is_ai_flagged is True
 
@@ -86,7 +86,7 @@ class TestReportAiFlagReview:
             {"image_url": FLAGGED_IMAGE}
         ]
         assert log.payload["ai_flag_review"]["status_change"] == {
-            "from": "Under Review",
+            "from": "In Progress",
             "to": "On-Hold",
         }
         assert log.payload["remarks"] == "Photo is a composite but the hazard is real."
@@ -116,7 +116,7 @@ class TestReportAiFlagReview:
         log = AuditLogs.objects.get(action=AuditLogs.ActionType.AI_FLAG_REVIEW)
         assert log.payload["ai_flag_review"]["decision"] == "CONFIRMED"
         assert log.payload["ai_flag_review"]["status_change"] == {
-            "from": "Under Review",
+            "from": "In Progress",
             "to": "Invalid",
         }
 
@@ -160,7 +160,7 @@ class TestReportAiFlagReview:
         assert response.status_code == 400
         assert response.json()["error_code"] == "AI_FLAG_DECISION_STATUS_MISMATCH"
 
-    def test_moving_assigned_report_to_under_review_keeps_the_flag_pending(
+    def test_moving_assigned_report_to_in_progress_keeps_the_flag_pending(
             self, api_client, report_officer_role
     ):
         officer, report = self._officer_and_report(
@@ -172,13 +172,13 @@ class TestReportAiFlagReview:
         api_client.force_authenticate(user=officer)
         response = api_client.patch(
             f"/reports/{report.report_number}/",
-            {"status": "UNDER_REVIEW"},
+            {"status": "IN_PROGRESS", "severity": "P2"},
             format="json",
         )
 
         assert response.status_code == 200
         report.refresh_from_db()
-        assert report.status == HazardReports.Status.UNDER_REVIEW
+        assert report.status == HazardReports.Status.IN_PROGRESS
         assert report.is_ai_flagged is True
         assert report.images.get(image_url=FLAGGED_IMAGE).is_ai_flagged is True
 
@@ -261,7 +261,7 @@ class TestReportAiFlagReview:
         report = HazardReportFactory(
             reported_by=citizen,
             assigned_to=officer,
-            status=HazardReports.Status.UNDER_REVIEW,
+            status=HazardReports.Status.IN_PROGRESS,
             severity="P2",
             is_ai_flagged=True,
             ai_flag_reasons=["AI_GENERATED"],

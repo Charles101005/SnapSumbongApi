@@ -161,6 +161,8 @@ class ReportDetailView(APIView):
             resolution_images=validated_data.get("resolution_images"),
             validated_by_name=validated_data.get("validated_by_name"),
             ai_flag_decision=validated_data.get("ai_flag_decision"),
+            activity=validated_data.get("activity"),
+            activity_remarks=validated_data.get("activity_remarks"),
         )
 
         return DomainResultResponse(result).respond(

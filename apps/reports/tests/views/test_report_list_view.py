@@ -32,7 +32,7 @@ class TestReportListView:
         new_report = HazardReportFactory(
             status=HazardReports.Status.NEW, severity="P1"
         )
-        HazardReportFactory(status=HazardReports.Status.DISPATCHED, severity="P2")
+        HazardReportFactory(status=HazardReports.Status.IN_PROGRESS, severity="P2")
 
         api_client.force_authenticate(user=supervisor)
         response = api_client.get("/reports/", {"status": "NEW"})

@@ -258,6 +258,30 @@ def audit_status_change(*, ev: AuditEventCollector, actor, report,
     ))
 
 
+def audit_activity_note(*, ev: AuditEventCollector, actor, report,
+                        activity, activity_label, status, at, remarks):
+    actor_str = actor.user_number if actor else "the System"
+    ev.add(AuditEvent(
+        occurred_at=at,
+        action=AuditLogs.ActionType.ACTIVITY_NOTE,
+        module=AuditLogs.ModuleType.REPORT,
+        actor=actor,
+        target=report,
+        description=(
+            f'REPORT {report.report_number} activity was recorded as '
+            f'"{activity_label}" by {actor_str} with the remarks: "{remarks}"'
+        ),
+        payload={
+            "activity_note": {
+                "type": activity,
+                "label": activity_label,
+                "status": status,
+            },
+            "remarks": remarks,
+        },
+    ))
+
+
 def audit_severity_change(*, ev: AuditEventCollector, actor, report,
                           old_severity, new_severity, at):
     actor_str = actor.user_number if actor else "the System"
