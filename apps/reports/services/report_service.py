@@ -5,7 +5,7 @@ from datetime import timedelta
 
 from django.utils import timezone
 from django.db import transaction
-from django.db.models import Count, QuerySet, Q
+from django.db.models import QuerySet, Q
 from django.conf import settings
 
 from apps.accounts.models import Users, CitizenWarnings
@@ -156,18 +156,14 @@ class ReportService:
 
     @staticmethod
     def _get_next_report_assigned_to():
-        active_statuses = [status for status in HazardReports.Status if status.phase < 4]
+        assigned_staff = UserService.get_next_staff_for_assignment()
 
-        assigned_active_reports = HazardReports.objects.filter(
-            status__in=active_statuses,
-            assigned_to__isnull=False,
-        ).values('assigned_to').annotate(count=Count('report_id'))
+        if assigned_staff:
+            # Advance the round-robin pointer: the handler who has gone
+            # longest without an assignment is picked next.
+            assigned_staff.assigned_at = timezone.now()
+            assigned_staff.save(update_fields=["assigned_at"])
 
-        staff_to_active_report_map: dict[int, int] = {
-            item['assigned_to']: item['count'] for item in assigned_active_reports
-        }
-
-        assigned_staff = UserService.get_next_staff_for_assignment(staff_to_active_report_map)
         return assigned_staff
 
     @staticmethod

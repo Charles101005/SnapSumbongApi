@@ -89,6 +89,8 @@ class Users(AbstractBaseUser):
 
     role = models.ForeignKey(Roles, on_delete=models.PROTECT, related_name='users')
 
+    assigned_at = models.DateTimeField(null=True, blank=True, db_index=True)
+
     last_active = models.DateTimeField(null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

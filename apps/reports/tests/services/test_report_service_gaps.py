@@ -72,6 +72,26 @@ class TestUnassignedReportProcessing:
         assert log.user_id is None
         assert "by the System" in log.description
 
+    def test_assignment_rotates_between_handlers(
+        self, report_officer_role
+    ):
+        first = UserFactory(role=report_officer_role, is_staff=True)
+        second = UserFactory(role=report_officer_role, is_staff=True)
+        citizen = UserFactory()
+
+        first_report = self._create_report(citizen)
+        second_report = self._create_report(citizen)
+        third_report = self._create_report(citizen)
+
+        # Round robin: both handlers take a turn, then the rotation wraps.
+        assert first_report.assigned_to_id != second_report.assigned_to_id
+        assert third_report.assigned_to_id == first_report.assigned_to_id
+
+        first.refresh_from_db()
+        second.refresh_from_db()
+        assert first.assigned_at is not None
+        assert second.assigned_at is not None
+
     def test_sweep_returns_early_when_no_staff_is_available(self):
         citizen = UserFactory()
         pending = HazardReportFactory(

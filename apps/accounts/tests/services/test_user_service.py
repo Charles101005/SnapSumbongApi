@@ -1,7 +1,8 @@
 import string
-from datetime import date
+from datetime import date, timedelta
 
 import pytest
+from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied
 
 from apps.accounts.domain_errors.user_error import (
@@ -195,43 +196,74 @@ class TestUnauthenticatedChangePassword:
 @pytest.mark.django_db
 class TestGetNextStaffForAssignment:
     def test_returns_none_when_no_eligible_staff(self):
-        assert UserService.get_next_staff_for_assignment({}) is None
+        assert UserService.get_next_staff_for_assignment() is None
 
     def test_ignores_inactive_staff(self, report_officer_role):
         UserFactory(role=report_officer_role, is_staff=True, is_active=False)
 
-        assert UserService.get_next_staff_for_assignment({}) is None
+        assert UserService.get_next_staff_for_assignment() is None
 
     def test_ignores_staff_without_update_assigned_permission(self, citizen_role):
         UserFactory(role=citizen_role, is_staff=True)
 
-        assert UserService.get_next_staff_for_assignment({}) is None
+        assert UserService.get_next_staff_for_assignment() is None
 
     def test_returns_eligible_staff(self, report_officer_role):
         staff = UserFactory(role=report_officer_role, is_staff=True)
 
-        result = UserService.get_next_staff_for_assignment({})
+        result = UserService.get_next_staff_for_assignment()
 
         assert result == staff
 
-    def test_picks_staff_with_fewest_active_reports(self, report_officer_role):
-        busy = UserFactory(role=report_officer_role, is_staff=True)
-        free = UserFactory(role=report_officer_role, is_staff=True)
+    def test_prefers_staff_never_assigned(self, report_officer_role):
+        UserFactory(
+            role=report_officer_role,
+            is_staff=True,
+            assigned_at=timezone.now(),
+        )
+        never_assigned = UserFactory(role=report_officer_role, is_staff=True)
 
-        result = UserService.get_next_staff_for_assignment({
-            busy.user_id: 5,
-            free.user_id: 1,
-        })
+        result = UserService.get_next_staff_for_assignment()
 
-        assert result == free
+        assert result == never_assigned
 
-    def test_defaults_unmapped_staff_to_zero(self, report_officer_role):
-        mapped = UserFactory(role=report_officer_role, is_staff=True)
-        unmapped = UserFactory(role=report_officer_role, is_staff=True)
+    def test_picks_the_least_recently_assigned_staff(self, report_officer_role):
+        now = timezone.now()
+        UserFactory(
+            role=report_officer_role,
+            is_staff=True,
+            assigned_at=now,
+        )
+        idle_staff = UserFactory(
+            role=report_officer_role,
+            is_staff=True,
+            assigned_at=now - timedelta(minutes=5),
+        )
 
-        result = UserService.get_next_staff_for_assignment({mapped.user_id: 3})
+        result = UserService.get_next_staff_for_assignment()
 
-        assert result == unmapped
+        assert result == idle_staff
+
+    def test_ties_are_broken_by_account_age(self, report_officer_role):
+        now = timezone.now()
+        older = UserFactory(
+            role=report_officer_role,
+            is_staff=True,
+            assigned_at=now,
+        )
+        newer = UserFactory(
+            role=report_officer_role,
+            is_staff=True,
+            assigned_at=now,
+        )
+        Users.objects.filter(user_id=older.user_id).update(
+            created_at=now - timedelta(days=1)
+        )
+        Users.objects.filter(user_id=newer.user_id).update(created_at=now)
+
+        result = UserService.get_next_staff_for_assignment()
+
+        assert result == older
 
 
 @pytest.mark.django_db
