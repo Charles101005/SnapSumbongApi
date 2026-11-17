@@ -34,7 +34,7 @@ class TestHazardReportMetricsView:
         assert data["count_by_status"]["resolved"] == 1
         # Unrepresented statuses fall back to the serializer default.
         assert data["count_by_status"]["invalid"] == 0
-        assert data["count_by_status"]["ongoing"] == 0
+        assert data["count_by_status"]["in_progress"] == 0
 
     def test_report_officer_sees_assigned_reports_only(
         self, api_client, report_officer_role
@@ -60,7 +60,23 @@ class TestHazardReportMetricsView:
         assert data["count_by_status"]["new"] == 1
         assert data["count_by_status"]["resolved"] == 1
         # The outsider's report must not leak into this officer's metrics.
-        assert data["count_by_status"]["dispatched"] == 0
+        assert data["count_by_status"]["in_progress"] == 0
+
+    def test_in_progress_count_is_serialized(self, api_client, report_officer_role):
+        handler = UserFactory(role=report_officer_role, is_staff=True)
+        HazardReportFactory(
+            assigned_to=handler, status=HazardReports.Status.IN_PROGRESS
+        )
+
+        api_client.force_authenticate(user=handler)
+        response = api_client.get("/analytics/hazard-report/")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total_count"] == 1
+        # In Progress is a live status in the current lifecycle; the response
+        # serializer must expose it instead of the retired handling statuses.
+        assert data["count_by_status"]["in_progress"] == 1
 
     def test_citizen_sees_own_reports_only(self, api_client, citizen_role):
         owner, _ = self._seed()

@@ -15,7 +15,8 @@ from apps.reports.serializers.request.report_serializer import (
     CreateReportRequestSerializer,
     GetReportListRequestSerializer,
     UpdateReportRequestSerializer,
-    TransferReportRequestSerializer
+    TransferReportRequestSerializer,
+    ReopenReportRequestSerializer
 )
 from apps.reports.serializers.response.report_serializer import (
     ReportImageSignatureResponseSerializer,
@@ -103,6 +104,24 @@ class ReportConfirmResolutionView(APIView):
         result = ReportService.confirm_report_resolution(
             user=request.user,
             report_number=report_number,
+        )
+
+        return DomainResultResponse(result).respond(
+            success_status_code=status.HTTP_200_OK,
+        )
+
+
+class ReportReopenView(APIView):
+    @rate_limit(StandardRateLimit)
+    @require_perm(AllPermissions.REPORTS.UPDATE_OWN)
+    def post(self, request: Request, report_number: str) -> Response:
+        serializer = ReopenReportRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        result = ReportService.reopen_report_by_reporter(
+            user=request.user,
+            report_number=report_number,
+            remarks=serializer.validated_data["remarks"],
         )
 
         return DomainResultResponse(result).respond(

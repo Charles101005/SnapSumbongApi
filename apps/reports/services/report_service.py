@@ -1,3 +1,4 @@
+import logging
 import secrets
 from typing import Any
 from decimal import Decimal
@@ -49,6 +50,8 @@ from apps.reports.domain_errors.report_error import (
     MissingDuringPhotoError,
     MissingAfterPhotoError,
     ReportNotResolvedError,
+    ReportNotReopenableError,
+    ReopenRemarksRequiredError,
     ValidatorNameRequiredError,
     ReportNotTransferableError,
     InvalidTransferTargetError,
@@ -69,15 +72,21 @@ from external.email import EmailService
 from external.ai import AIService
 
 
-# Transitions that leave triage (the intake/assignment stage) and therefore
-# require the officer to answer the advisory AI screening question. Returning
-# from On-Hold to In Progress does not force a decision; the flag stays pending.
+# Transitions that require the officer to answer the advisory AI screening
+# question. In Progress is included deliberately: an AI-flagged report must be
+# reviewed before it enters handling, not only when it later leaves it. The
+# same decision also covers every later target, so the flag never survives
+# into In Progress on a new report.
 AI_FLAG_REVIEW_REQUIRED_TARGETS = {
+    HazardReports.Status.IN_PROGRESS.value,
     HazardReports.Status.ON_HOLD.value,
     HazardReports.Status.RESOLVED.value,
     HazardReports.Status.CLOSED.value,
     HazardReports.Status.INVALID.value,
 }
+
+
+logger = logging.getLogger(__name__)
 
 
 class ReportService:
@@ -627,8 +636,8 @@ class ReportService:
             if new_status_str == report.status:
                 return DomainResult.error(DuplicateStatusTransitionError)
 
-            # The AI screening flag is advisory: when a flagged report leaves
-            # triage, the officer must say whether the report is valid. The
+            # The AI screening flag is advisory: when a flagged report enters
+            # handling, the officer must say whether the report is valid. The
             # original flag/reasons are retained and the decision is audited.
             if ai_flag_decision == AI_FLAG_DECISION_CONFIRMED and new_status_str != HazardReports.Status.INVALID.value:
                 return DomainResult.error(AiFlagDecisionStatusMismatchError)
@@ -643,12 +652,26 @@ class ReportService:
             ):
                 return DomainResult.error(AiFlagReviewRequiredError)
 
+            # A confirmed AI flag is the one triage verdict that may skip
+            # In Progress: the reviewer has already judged the report fake, so
+            # Assigned can go straight to Invalid in the same save. The
+            # transition matrix stays unchanged for unflagged reports.
+            ai_confirmed_invalid = (
+                report.status == HazardReports.Status.ASSIGNED
+                and new_status_str == HazardReports.Status.INVALID.value
+                and ai_flag_decision == AI_FLAG_DECISION_CONFIRMED
+            )
+
             if new_status_str in HazardReports.Status.get_mandatory_remarks_statuses() and not remarks:
                 return DomainResult.error(MandatoryRemarksStatusError)
 
-            # Assigned has exactly one next stage: In Progress. Enforced
-            # here so the rule holds no matter how the PATCH is sent.
-            if report.status == HazardReports.Status.ASSIGNED and new_status_str != HazardReports.Status.IN_PROGRESS:
+            # Assigned normally has exactly one next stage: In Progress.
+            # Enforced here so the rule holds no matter how the PATCH is sent.
+            if (
+                report.status == HazardReports.Status.ASSIGNED
+                and new_status_str != HazardReports.Status.IN_PROGRESS
+                and not ai_confirmed_invalid
+            ):
                 return DomainResult.error(AssignedStatusTransitionError)
 
             # The transition matrix is the single source of truth for legal
@@ -656,7 +679,7 @@ class ReportService:
             # creating stages the UI (and the citizen timeline) cannot render.
             current_status_value = HazardReports.Status(report.status).value
             allowed_next = STATUS_ALLOWED_TRANSITIONS.get(current_status_value, ())
-            if new_status_str not in allowed_next:
+            if new_status_str not in allowed_next and not ai_confirmed_invalid:
                 return DomainResult.error(StatusTransitionNotAllowedError)
 
             # Severity is the triage verdict made when handling starts: it
@@ -904,4 +927,189 @@ class ReportService:
         )
 
         return DomainResult.success(None)
+
+    @staticmethod
+    @transaction.atomic
+    def reopen_report_by_reporter(
+            *,
+            user: Users,
+            report_number: str,
+            remarks: str | None = None,
+    ) -> DomainResult[None]:
+        """Reopen a resolved report from the reporter's own view.
+
+        This is the citizen counterpart to the staff update path. It is
+        deliberately separate from the status matrix: only the reporter may
+        reopen their own resolved report, and the reason is mandatory. Closed
+        reports are final and are intentionally not reopenable.
+        """
+        report = HazardReports.objects.filter(
+            reported_by_id=user.user_id,
+            report_number__iexact=report_number,
+        ).first()
+        if not report:
+            raise ReportDoesNotExistException()
+
+        if report.status != HazardReports.Status.RESOLVED:
+            return DomainResult.error(ReportNotReopenableError)
+
+        remarks = remarks.strip() if remarks else None
+        if not remarks or len(remarks) < 10:
+            return DomainResult.error(ReopenRemarksRequiredError)
+
+        old_status = HazardReports.Status(report.status)
+        report.status = HazardReports.Status.IN_PROGRESS
+        report.resolved_at = None
+        report.confirmed_at = None
+        report.auto_closed_at = None
+        report.validated_by = None
+        report.validated_by_name = None
+        report.remarks = remarks
+        report.save(update_fields=[
+            "status",
+            "resolved_at",
+            "confirmed_at",
+            "auto_closed_at",
+            "validated_by",
+            "validated_by_name",
+            "remarks",
+        ])
+
+        AuditLogService.log_report_status_change(
+            actor=user,
+            old_status=old_status.label,
+            new_status=report.status.label,
+            remarks=remarks,
+            report=report,
+            description_override=(
+                f"REPORT {report.report_number} was reopened by "
+                f"{user.user_number} with the remarks: \"{remarks}\""
+            ),
+        )
+
+        ReportService._enqueue_status_update_email(
+            report=report,
+            old_status_label=old_status.label,
+            new_status_label=report.status.label,
+            remarks=remarks,
+        )
+
+        return DomainResult.success(None)
+
+    @staticmethod
+    def auto_close_resolved_reports(
+            *,
+            older_than_days: int | None = None,
+            dry_run: bool = False,
+            batch_size: int = 500,
+    ) -> dict[str, int]:
+        """Close RESOLVED reports whose confirmation window has elapsed.
+
+        A report is eligible only when it has a resolved_at timestamp, the
+        reporter has not confirmed it, and the configured number of days has
+        passed. The report keeps resolved_at for delivery metrics; the new
+        auto_closed_at timestamp records why it closed.
+
+        Each report is handled in its own transaction. Re-checking the status
+        after locking keeps a citizen confirmation or a staff closure that
+        happens during the run from being overwritten.
+        """
+        days = (
+            older_than_days
+            if older_than_days is not None
+            else settings.REPORT_CONFIG.get('RESOLVED_AUTO_CLOSE_AFTER_DAYS', 7)
+        )
+        if days < 0:
+            raise ValueError("older_than_days must be zero or greater.")
+        if batch_size <= 0:
+            raise ValueError("batch_size must be greater than zero.")
+
+        cutoff = timezone.now() - timedelta(days=days)
+        reason = (
+            f"Automatically closed after {days} days without reporter confirmation."
+        )
+
+        eligible = HazardReports.objects.filter(
+            status=HazardReports.Status.RESOLVED,
+            resolved_at__isnull=False,
+            resolved_at__lte=cutoff,
+            confirmed_at__isnull=True,
+        ).order_by("report_id")
+
+        if dry_run:
+            return {
+                "closed": 0,
+                "skipped": 0,
+                "failed": 0,
+                "would_close": eligible.count(),
+            }
+
+        closed = 0
+        skipped = 0
+        failed = 0
+        last_id = 0
+
+        while True:
+            report_ids = list(
+                eligible.filter(report_id__gt=last_id)
+                .values_list("report_id", flat=True)[:batch_size]
+            )
+            if not report_ids:
+                break
+
+            for report_id in report_ids:
+                last_id = report_id
+                try:
+                    with transaction.atomic():
+                        report = (
+                            HazardReports.objects.select_for_update()
+                            .filter(report_id=report_id)
+                            .first()
+                        )
+                        if (
+                            not report
+                            or report.status != HazardReports.Status.RESOLVED
+                            or report.resolved_at is None
+                            or report.resolved_at > cutoff
+                            or report.confirmed_at is not None
+                        ):
+                            skipped += 1
+                            continue
+
+                        report.status = HazardReports.Status.CLOSED
+                        report.auto_closed_at = timezone.now()
+                        report.save(update_fields=["status", "auto_closed_at"])
+
+                        AuditLogService.log_report_status_change(
+                            actor=None,
+                            old_status=HazardReports.Status.RESOLVED.label,
+                            new_status=HazardReports.Status.CLOSED.label,
+                            remarks=reason,
+                            report=report,
+                            description_override=(
+                                f"REPORT {report.report_number} was automatically "
+                                f"closed by the System after {days} days without "
+                                "reporter confirmation."
+                            ),
+                        )
+
+                        ReportService._enqueue_status_update_email(
+                            report=report,
+                            old_status_label=HazardReports.Status.RESOLVED.label,
+                            new_status_label=HazardReports.Status.CLOSED.label,
+                            remarks=reason,
+                        )
+                    closed += 1
+                except Exception:
+                    logger.exception(
+                        "Failed to auto-close report_id=%s", report_id
+                    )
+                    failed += 1
+
+        return {
+            "closed": closed,
+            "skipped": skipped,
+            "failed": failed,
+            "would_close": 0,
+        }
 

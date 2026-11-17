@@ -160,7 +160,7 @@ class TestReportAiFlagReview:
         assert response.status_code == 400
         assert response.json()["error_code"] == "AI_FLAG_DECISION_STATUS_MISMATCH"
 
-    def test_moving_assigned_report_to_in_progress_keeps_the_flag_pending(
+    def test_moving_assigned_report_to_in_progress_requires_ai_review(
             self, api_client, report_officer_role
     ):
         officer, report = self._officer_and_report(
@@ -176,11 +176,103 @@ class TestReportAiFlagReview:
             format="json",
         )
 
+        assert response.status_code == 400
+        assert response.json()["error_code"] == "AI_FLAG_REVIEW_REQUIRED"
+        report.refresh_from_db()
+        assert report.status == HazardReports.Status.ASSIGNED
+        assert report.is_ai_flagged is True
+        assert report.images.get(image_url=FLAGGED_IMAGE).is_ai_flagged is True
+
+    def test_cleared_review_unlocks_assigned_to_in_progress(
+            self, api_client, report_officer_role
+    ):
+        officer, report = self._officer_and_report(
+            report_officer_role,
+            status=HazardReports.Status.ASSIGNED,
+            severity=None,
+        )
+
+        api_client.force_authenticate(user=officer)
+        response = api_client.patch(
+            f"/reports/{report.report_number}/",
+            {
+                "status": "IN_PROGRESS",
+                "severity": "P2",
+                "ai_flag_decision": "CLEARED",
+            },
+            format="json",
+        )
+
         assert response.status_code == 200
         report.refresh_from_db()
         assert report.status == HazardReports.Status.IN_PROGRESS
+        assert report.is_ai_flagged is False
+        assert report.images.get(image_url=FLAGGED_IMAGE).is_ai_flagged is False
+
+        log = AuditLogs.objects.get(action=AuditLogs.ActionType.AI_FLAG_REVIEW)
+        assert log.payload["ai_flag_review"]["decision"] == "CLEARED"
+        assert log.payload["ai_flag_review"]["status_change"] == {
+            "from": "Assigned",
+            "to": "In Progress",
+        }
+
+    def test_confirmed_review_from_assigned_marks_the_report_invalid(
+            self, api_client, report_officer_role
+    ):
+        officer, report = self._officer_and_report(
+            report_officer_role,
+            status=HazardReports.Status.ASSIGNED,
+            severity=None,
+        )
+
+        api_client.force_authenticate(user=officer)
+        response = api_client.patch(
+            f"/reports/{report.report_number}/",
+            {
+                "status": "INVALID",
+                "remarks": "The photo is AI-generated and not a real hazard.",
+                "ai_flag_decision": "CONFIRMED",
+            },
+            format="json",
+        )
+
+        assert response.status_code == 200
+        report.refresh_from_db()
+        assert report.status == HazardReports.Status.INVALID
+        assert report.is_ai_flagged is False
+        assert report.images.get(image_url=FLAGGED_IMAGE).is_ai_flagged is False
+
+        log = AuditLogs.objects.get(action=AuditLogs.ActionType.AI_FLAG_REVIEW)
+        assert log.payload["ai_flag_review"]["decision"] == "CONFIRMED"
+        assert log.payload["ai_flag_review"]["status_change"] == {
+            "from": "Assigned",
+            "to": "Invalid",
+        }
+
+    def test_assigned_invalid_without_ai_review_is_rejected(
+            self, api_client, report_officer_role
+    ):
+        officer, report = self._officer_and_report(
+            report_officer_role,
+            status=HazardReports.Status.ASSIGNED,
+            severity=None,
+        )
+
+        api_client.force_authenticate(user=officer)
+        response = api_client.patch(
+            f"/reports/{report.report_number}/",
+            {
+                "status": "INVALID",
+                "remarks": "The photo is AI-generated and not a real hazard.",
+            },
+            format="json",
+        )
+
+        assert response.status_code == 400
+        assert response.json()["error_code"] == "AI_FLAG_REVIEW_REQUIRED"
+        report.refresh_from_db()
+        assert report.status == HazardReports.Status.ASSIGNED
         assert report.is_ai_flagged is True
-        assert report.images.get(image_url=FLAGGED_IMAGE).is_ai_flagged is True
 
     def test_decision_on_an_unflagged_report_is_rejected(
             self, api_client, report_officer_role

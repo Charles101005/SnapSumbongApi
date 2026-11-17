@@ -119,8 +119,8 @@ class TestCitizenConfirmResolution:
         assert result.is_success is False
         assert result.error is ReportNotResolvedError
 
-    def test_resolved_report_is_not_auto_closed(self, citizen_role):
-        # DO 47: unfinished/unconfirmed items are retained, never auto-closed.
+    def test_resolved_report_stays_resolved_without_auto_close_job(self, citizen_role):
+        # The report never changes on its own: auto-close is an explicit job.
         citizen = UserFactory(role=citizen_role)
         report = _resolved_report(reported_by=citizen)
         report.resolved_at = timezone.now() - timedelta(days=30)

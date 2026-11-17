@@ -4,10 +4,8 @@ from rest_framework import serializers
 class _ReportMetricsByStatus(serializers.Serializer):
     new = serializers.IntegerField(default=0)
     assigned = serializers.IntegerField(default=0)
-    under_review = serializers.IntegerField(default=0)
+    in_progress = serializers.IntegerField(default=0)
     on_hold = serializers.IntegerField(default=0)
-    dispatched = serializers.IntegerField(default=0)
-    ongoing = serializers.IntegerField(default=0)
     resolved = serializers.IntegerField(default=0)
     closed = serializers.IntegerField(default=0)
     invalid = serializers.IntegerField(default=0)

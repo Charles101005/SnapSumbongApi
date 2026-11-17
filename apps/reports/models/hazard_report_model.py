@@ -16,6 +16,8 @@ class HazardReportManager(models.Manager):
 # and completed works close only via Resolved. Assigned leads directly into
 # In Progress — no other next stage — and Invalid is only a triage verdict
 # once handling has begun (fake/troll reports are flagged after assessment).
+# The service allows one extra path: Assigned -> Invalid when a pending AI
+# screening flag is confirmed as fake in the same save.
 #
 # Validation, dispatch, and field work are ACTIVITIES inside In Progress, not
 # separate ticket statuses. They are recorded through the activity log and
@@ -215,9 +217,16 @@ class HazardReports(models.Model):
     resolved_at = models.DateTimeField(null=True)
 
     # Set only when the reporter (citizen) confirms the completed works and
-    # the report moves RESOLVED -> CLOSED. A CLOSED report with a null
-    # confirmed_at was force-closed by staff (e.g. out of DO 47 jurisdiction).
+    # the report moves RESOLVED -> CLOSED. A CLOSED report with both
+    # confirmed_at and auto_closed_at null was force-closed by staff (e.g.
+    # out of DO 47 jurisdiction).
     confirmed_at = models.DateTimeField(null=True, blank=True)
+
+    # Set only when the system closes a RESOLVED report after the configured
+    # confirmation window elapses without the reporter responding. The report
+    # keeps resolved_at for delivery metrics; confirmed_at stays null so an
+    # automatic closure is never presented as a reporter confirmation.
+    auto_closed_at = models.DateTimeField(null=True, blank=True)
 
     audit_logs = GenericRelation(
         "apps_audits.AuditLogs",

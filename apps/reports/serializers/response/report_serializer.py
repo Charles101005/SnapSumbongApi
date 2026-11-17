@@ -152,6 +152,10 @@ class GetReportDetailResponseSerializer(serializers.Serializer):
     #closed the report; null on staff force-closes or non-closed reports.
     confirmed_at = serializers.DateTimeField(allow_null=True)
 
+    #System auto-closure marker (visible to both): set when the 7-day
+    #confirmation window expired without the reporter responding.
+    auto_closed_at = serializers.DateTimeField(allow_null=True)
+
     image_urls = serializers.SerializerMethodField()
 
     #DO 47 photolog: grouped Before/During/After photos (visible to both)

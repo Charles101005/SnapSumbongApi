@@ -67,3 +67,14 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'  # populated by collectstatic in the cont
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+# Report workflow configuration.
+REPORT_CONFIG = {
+    # A RESOLVED report is automatically closed after this many days when the
+    # reporter has not confirmed the resolution. Override per deployment with
+    # the RESOLVED_AUTO_CLOSE_AFTER_DAYS environment variable.
+    'RESOLVED_AUTO_CLOSE_AFTER_DAYS': int(
+        os.getenv('RESOLVED_AUTO_CLOSE_AFTER_DAYS', 7)
+    ),
+}

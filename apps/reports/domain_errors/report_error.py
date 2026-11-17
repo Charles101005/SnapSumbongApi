@@ -46,7 +46,7 @@ MandatoryRemarksStatusError = DomainError(
 )
 
 AssignedStatusTransitionError = DomainError(
-    detail="An Assigned report can only move to In Progress.",
+    detail="An Assigned report can only move to In Progress, or to Invalid when a pending AI screening flag is confirmed.",
     status_code=status.HTTP_400_BAD_REQUEST,
     error_code="ASSIGNED_STATUS_TRANSITION",
 )
@@ -103,6 +103,18 @@ ReportNotResolvedError = DomainError(
     detail="Only reports with resolved status can be confirmed by the reporter.",
     status_code=status.HTTP_409_CONFLICT,
     error_code="CONFIRMATION_NOT_RESOLVED",
+)
+
+ReportNotReopenableError = DomainError(
+    detail="Only resolved reports can be reopened. Closed reports are final.",
+    status_code=status.HTTP_409_CONFLICT,
+    error_code="REPORT_NOT_REOPENABLE",
+)
+
+ReopenRemarksRequiredError = DomainError(
+    detail="A reason of at least 10 characters is required when reopening a report.",
+    status_code=status.HTTP_400_BAD_REQUEST,
+    error_code="REOPEN_REMARKS_REQUIRED",
 )
 
 ValidatorNameRequiredError = DomainError(

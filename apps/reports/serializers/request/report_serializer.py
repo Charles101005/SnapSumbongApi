@@ -159,6 +159,12 @@ class UpdateReportRequestSerializer(serializers.Serializer):
     )
 
 
+class ReopenReportRequestSerializer(serializers.Serializer):
+    # Reporter's reason for reopening a resolved report. The same 10-character
+    # minimum as the citizen description and handling notes.
+    remarks = serializers.CharField(min_length=10, max_length=500)
+
+
 class TransferReportRequestSerializer(serializers.Serializer):
     # Target officer, identified the same way staff APIs identify users.
     assigned_to = serializers.CharField(max_length=20)
