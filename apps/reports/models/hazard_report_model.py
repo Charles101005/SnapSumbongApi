@@ -173,10 +173,7 @@ class HazardReports(models.Model):
         related_name="assigned_hazard_reports",
     )
 
-    # DO 47 s.2024 §2: the staff member who validated the completed
-    # rectification works. The resolving officer declares this name manually
-    # (typed into the resolve form); it may be any technical personnel,
-    # including the assigned handler.
+    # The staff member who validated the completed rectification works.
     validated_by_name = models.CharField(max_length=150, null=True, blank=True)
 
     # The account that performed the resolve action in the system (audit).
@@ -201,11 +198,7 @@ class HazardReports(models.Model):
 
     remarks = models.TextField(blank=True, null=True)
 
-    # Preliminary AI screening signal. This never approves or rejects a report
-    # on its own; staff still make the final decision. True when at least one
-    # submitted image was flagged, and ai_flag_reasons lists the reason codes.
-    # Once an officer reviews the flag, both this and the per-image flags are
-    # cleared; the detection/review history lives in the audit trail.
+    # If the report is flagged by the preliminary AI screening.
     is_ai_flagged = models.BooleanField(default=False, db_index=True)
     ai_flag_reasons = models.JSONField(default=list, blank=True)
 
@@ -216,21 +209,12 @@ class HazardReports(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     resolved_at = models.DateTimeField(null=True)
 
-    # Set only when the reporter (citizen) confirms the completed works and
-    # the report moves RESOLVED -> CLOSED. A CLOSED report with both
-    # confirmed_at and auto_closed_at null was force-closed by staff (e.g.
-    # out of DO 47 jurisdiction).
+    # For citizen to confirm a resolved report
     confirmed_at = models.DateTimeField(null=True, blank=True)
 
-    # Set only when the system closes a RESOLVED report after the configured
-    # confirmation window elapses without the reporter responding. The report
-    # keeps resolved_at for delivery metrics; confirmed_at stays null so an
-    # automatic closure is never presented as a reporter confirmation.
+    # Set only when the system closes a RESOLVED report after the configured time window
     auto_closed_at = models.DateTimeField(null=True, blank=True)
-
-    # Set once by the daily overdue job when the reporter is emailed that this
-    # report has passed due_at. Never cleared: a report is notified at most
-    # once in its lifetime, so re-running the job cannot send duplicates.
+    # To keep track which overdue reports were already notified
     overdue_notified_at = models.DateTimeField(null=True, blank=True, db_index=True)
 
     audit_logs = GenericRelation(
