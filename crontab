@@ -1,0 +1,21 @@
+# SnapSumbong scheduled jobs (run by the `scheduler` service via supercronic).
+#
+# Times are in the container timezone, set to Asia/Manila in docker-compose.yml.
+# Every job below is idempotent, so a missed or repeated run is safe.
+#
+# Format: minute hour day-of-month month day-of-week  command
+
+# Delete OTP / password-reset rows one hour after they expire.
+5 * * * * cd /app && python manage.py cleanup_verification_requests
+
+# Delete expired SimpleJWT outstanding/blacklisted refresh tokens (7-day life).
+15 3 * * * cd /app && python manage.py flushexpiredtokens
+
+# Email reporters whose report just passed its SLA due date.
+0 6 * * * cd /app && python manage.py notify_overdue_reports
+
+# Close RESOLVED reports whose reporter-confirmation window has elapsed.
+10 6 * * * cd /app && python manage.py auto_close_resolved_reports
+
+# Clear expired DB-backed sessions (weekly; harmless while auth is JWT-only).
+30 3 * * 0 cd /app && python manage.py clearsessions

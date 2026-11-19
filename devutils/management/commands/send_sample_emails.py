@@ -1,5 +1,6 @@
 import secrets
 import string
+from datetime import timedelta
 from typing import Any, Callable
 
 from django.conf import settings
@@ -86,6 +87,9 @@ class Command(DebugOnlyCommand):
             "category": self.SAMPLE_CATEGORY,
             "location": self.SAMPLE_LOCATION,
             "submitted_at": timezone.localtime(timezone.now()).strftime(
+                self.SAMPLE_SUBMITTED_AT_FORMAT
+            ),
+            "due_at": timezone.localtime(timezone.now() - timedelta(days=2)).strftime(
                 self.SAMPLE_SUBMITTED_AT_FORMAT
             ),
             "old_status": HazardReports.Status.ASSIGNED.label,
@@ -180,6 +184,19 @@ class Command(DebugOnlyCommand):
                     old_status=ctx["old_status"],
                     new_status=ctx["new_status"],
                     remarks="",
+                ),
+            ),
+            (
+                "report_overdue",
+                "send_report_overdue -- report past its target resolution date",
+                lambda: EmailService.send_report_overdue(
+                    to_email=email,
+                    to_first_name=first_name,
+                    report_number=ctx["report_number"],
+                    category=ctx["category"],
+                    location=ctx["location"],
+                    submitted_at=ctx["submitted_at"],
+                    due_at=ctx["due_at"],
                 ),
             ),
             (

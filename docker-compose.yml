@@ -1,7 +1,8 @@
 # SnapSumbong API deployment stack
-#   caddy  — automatic HTTPS (Let's Encrypt) + reverse proxy to the API
-#   web    — Django API behind Gunicorn
-#   db     — PostgreSQL with a persistent volume
+#   caddy     — automatic HTTPS (Let's Encrypt) + reverse proxy to the API
+#   web       — Django API behind Gunicorn
+#   scheduler — supercronic running the jobs in ./crontab
+#   db        — PostgreSQL with a persistent volume
 #
 # Requires ./.env — generate it with ./fetch-env.sh (reads AWS Parameter Store).
 
@@ -54,6 +55,26 @@ services:
       - caddy_config:/config
     depends_on:
       - web
+
+  # Runs the maintenance commands listed in ./crontab (supercronic is baked
+  # into the image). Kept out of `web` so restarts/scaling never disturb the
+  # schedule and job output has its own stream:
+  #   docker compose logs -f scheduler
+  scheduler:
+    image: ghcr.io/charles101005/snapsumbong-api:latest
+    pull_policy: always
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      TZ: ${TIME_ZONE:-Asia/Manila}
+    entrypoint: ["supercronic", "-split-logs", "/etc/supercronic/crontab"]
+    # The image's HEALTHCHECK probes gunicorn on :8000, which this service
+    # doesn't run; leave it out so the scheduler isn't reported unhealthy.
+    healthcheck:
+      disable: true
+    depends_on:
+      web:
+        condition: service_healthy
 
 volumes:
   postgres_data:

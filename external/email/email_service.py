@@ -221,6 +221,33 @@ class EmailService:
         )
 
     @classmethod
+    def send_report_overdue(
+            cls,
+            *,
+            to_email: str,
+            to_first_name: str,
+            report_number: str,
+            category: str,
+            location: str,
+            submitted_at: str,
+            due_at: str
+    ) -> bool:
+        return cls._compile_and_send(
+            from_email=cls._resolve_sender(auth=False),
+            to_emails=[to_email],
+            subject=f"Your report {report_number} is overdue",
+            template_path="report_overdue.html",
+            context={
+                "first_name": to_first_name,
+                "report_number": report_number,
+                "category": category,
+                "location": location,
+                "submitted_at": submitted_at,
+                "due_at": due_at,
+            }
+        )
+
+    @classmethod
     def send_user_banned(
             cls,
             *,

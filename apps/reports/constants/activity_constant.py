@@ -37,3 +37,7 @@ REPORT_ACTIVITY_SELECTABLE_VALUES = tuple(
 REPORT_ACTIVITY_LABELS = {
     choice.value: choice.label for choice in ReportActivity
 }
+
+# System-generated activities that are recorded in the audit trail but are
+# never selectable in the staff activity picker.
+REPORT_ACTIVITY_LABELS["OVERDUE_NOTIFIED"] = "Reporter notified of overdue SLA"

@@ -15,13 +15,24 @@ WORKDIR /app
 
 # curl is used by the HEALTHCHECK below
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends curl \
+    && apt-get install -y --no-install-recommends curl tzdata \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
+
+# supercronic: container-friendly cron. Unlike system cron it passes the
+# container environment (DJANGO_SECRET_KEY, DB_*, ...) through to jobs and
+# writes job output to stdout/stderr. The `scheduler` compose service runs it.
+ARG SUPERCRONIC_VERSION=v0.2.51
+RUN arch="$(dpkg --print-architecture)" \
+    && curl -fsSLo /usr/local/bin/supercronic \
+        "https://github.com/aptible/supercronic/releases/download/${SUPERCRONIC_VERSION}/supercronic-linux-${arch}" \
+    && chmod +x /usr/local/bin/supercronic
+
+COPY crontab /etc/supercronic/crontab
 
 RUN chmod +x entrypoint.sh
 

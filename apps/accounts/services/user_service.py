@@ -173,9 +173,7 @@ class UserService:
 
     @staticmethod
     def get_next_staff_for_assignment() -> Users|None:
-        # Round robin: the handler who went longest without an assignment is
-        # next. Staff who have never been assigned (assigned_at is null) come
-        # first; account age only breaks ties between equally idle handlers.
+        # Round-robin based on assigned_at
         return Users.objects.filter(
             is_staff=True,
             is_active=True,

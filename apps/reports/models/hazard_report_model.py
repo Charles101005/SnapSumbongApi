@@ -228,6 +228,11 @@ class HazardReports(models.Model):
     # automatic closure is never presented as a reporter confirmation.
     auto_closed_at = models.DateTimeField(null=True, blank=True)
 
+    # Set once by the daily overdue job when the reporter is emailed that this
+    # report has passed due_at. Never cleared: a report is notified at most
+    # once in its lifetime, so re-running the job cannot send duplicates.
+    overdue_notified_at = models.DateTimeField(null=True, blank=True, db_index=True)
+
     audit_logs = GenericRelation(
         "apps_audits.AuditLogs",
         object_id_field="object_id",

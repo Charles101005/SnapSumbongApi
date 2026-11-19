@@ -91,8 +91,15 @@ logger = logging.getLogger(__name__)
 
 class ReportService:
     @staticmethod
-    def _format_submitted_at(report: HazardReports) -> str:
-        return timezone.localtime(report.created_at).strftime("%B %d, %Y at %I:%M %p")
+    def _format_datetime(value) -> str:
+        return timezone.localtime(value).strftime("%B %d, %Y at %I:%M %p")
+
+    @staticmethod
+    def _reporter_can_be_notified(report: HazardReports) -> bool:
+        # Anonymous reports stay anonymous to other users only -- the reporter
+        # still gets updates on their own submission. Report notifications are
+        # also preference-based: the user can opt out via is_notified=False.
+        return bool(report.reported_by and report.reported_by.is_notified)
 
     @staticmethod
     def _enqueue_status_update_email(
@@ -102,14 +109,7 @@ class ReportService:
             new_status_label: str,
             remarks: str = ""
     ) -> None:
-        # Anonymous reports stay anonymous to other users only -- the
-        # reporter still gets updates on their own submission.
-        if not report.reported_by:
-            return
-
-        # Report notifications are preference-based: the user can opt out
-        # entirely via the profile (is_notified=False).
-        if not report.reported_by.is_notified:
+        if not ReportService._reporter_can_be_notified(report):
             return
 
         transaction.on_commit(
@@ -120,7 +120,7 @@ class ReportService:
                     report_number=r.report_number,
                     category=r.category.hazard_name,
                     location=r.address,
-                    submitted_at=ReportService._format_submitted_at(r),
+                    submitted_at=ReportService._format_datetime(r.created_at),
                     old_status=o,
                     new_status=n,
                     remarks=rem,
@@ -351,8 +351,6 @@ class ReportService:
         assigned_staff = ReportService._get_next_report_assigned_to()
         initial_status = HazardReports.Status.ASSIGNED if assigned_staff else HazardReports.Status.NEW
 
-        # DO 47 s.2024 §4.1: SLA clock starts when the defect is noted
-        # (i.e., report creation) and runs for the category's response time.
         now = timezone.now()
         due_at = now + timedelta(days=category.response_time_days)
 
@@ -399,7 +397,7 @@ class ReportService:
 
         # Report receipts are preference-based: users who opted out of
         # notifications (is_notified=False) don't get them.
-        if report.reported_by and report.reported_by.is_notified:
+        if ReportService._reporter_can_be_notified(report):
             transaction.on_commit(
                 lambda r=report: EmailService.send_report_successful_submission(
                     to_email=r.reported_by.email,
@@ -407,7 +405,7 @@ class ReportService:
                     report_number=r.report_number,
                     category=r.category.hazard_name,
                     location=r.address,
-                    submitted_at=ReportService._format_submitted_at(r),
+                    submitted_at=ReportService._format_datetime(r.created_at),
                 )
             )
 
@@ -1111,5 +1109,129 @@ class ReportService:
             "skipped": skipped,
             "failed": failed,
             "would_close": 0,
+        }
+
+    @staticmethod
+    def notify_overdue_reports(
+            *,
+            dry_run: bool = False,
+            batch_size: int = 5,
+    ) -> dict[str, int]:
+        """Email the reporter of every open report past its due date.
+
+        Each report is notified at most once ever. The per-report conditional
+        UPDATE sets overdue_notified_at only while it is still NULL, so
+        overlapping runs, retries, and multiple workers cannot send the same
+        notice twice. The same filter re-checks status and due_at at claim
+        time, so a report resolved (or corrected) between the initial query
+        and the claim is skipped.
+
+        Only the reporter is emailed, and only when they still accept report
+        notifications (Users.is_notified). A failed send releases the claim so
+        the next daily run retries it.
+        """
+        if batch_size <= 0:
+            raise ValueError("batch_size must be greater than zero.")
+
+        terminal_statuses = (
+            HazardReports.Status.RESOLVED,
+            HazardReports.Status.CLOSED,
+            HazardReports.Status.INVALID,
+        )
+
+        def eligible_reports():
+            return HazardReports.objects.filter(
+                due_at__isnull=False,
+                due_at__lte=timezone.now(),
+                overdue_notified_at__isnull=True,
+                reported_by__isnull=False,
+                reported_by__is_notified=True,
+            ).exclude(status__in=terminal_statuses)
+
+        if dry_run:
+            return {
+                "notified": 0,
+                "skipped": 0,
+                "failed": 0,
+                "would_notify": eligible_reports().count(),
+            }
+
+        notified = 0
+        skipped = 0
+        failed = 0
+        last_id = 0
+
+        while True:
+            report_ids = list(
+                eligible_reports()
+                .filter(report_id__gt=last_id)
+                .order_by("report_id")
+                .values_list("report_id", flat=True)[:batch_size]
+            )
+            if not report_ids:
+                break
+
+            for report_id in report_ids:
+                last_id = report_id
+
+                claimed = eligible_reports().filter(report_id=report_id).update(
+                    overdue_notified_at=timezone.now()
+                )
+                if not claimed:
+                    skipped += 1
+                    continue
+
+                try:
+                    report = (
+                        HazardReports.objects.select_related("reported_by", "category")
+                        .get(report_id=report_id)
+                    )
+                    sent = EmailService.send_report_overdue(
+                        to_email=report.reported_by.email,
+                        to_first_name=report.reported_by.first_name,
+                        report_number=report.report_number,
+                        category=report.category.hazard_name,
+                        location=report.address,
+                        submitted_at=ReportService._format_datetime(report.created_at),
+                        due_at=ReportService._format_datetime(report.due_at),
+                    )
+                except Exception:
+                    logger.exception(
+                        "Failed to send overdue notice for report_id=%s", report_id
+                    )
+                    sent = False
+
+                if not sent:
+                    # Release the claim so the next daily run retries.
+                    HazardReports.objects.filter(report_id=report_id).update(
+                        overdue_notified_at=None
+                    )
+                    failed += 1
+                    continue
+
+                notified += 1
+
+                try:
+                    AuditLogService.log_report_activity(
+                        actor=None,
+                        report=report,
+                        activity="OVERDUE_NOTIFIED",
+                        description_override=(
+                            f"REPORT {report.report_number} passed its target "
+                            "resolution date and the reporter was notified by email."
+                        ),
+                    )
+                except Exception:
+                    # The email is already out; keep the claim rather than
+                    # risking a duplicate on the next run.
+                    logger.exception(
+                        "Failed to log overdue notice for report_id=%s", report_id
+                    )
+
+        return {
+            "notified": notified,
+            "skipped": skipped,
+            "failed": failed,
+            "would_notify": 0,
         }
 
